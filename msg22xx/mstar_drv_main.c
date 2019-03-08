@@ -91,6 +91,8 @@ static u8 _gDebugCmdArgu[MAX_DEBUG_COMMAND_ARGUMENT_NUM] = {0};
 static u16 _gDebugCmdArguCount = 0;
 static u32 _gDebugReadDataSize = 0;
 
+static char _gDebugBuf[1024] = {0};
+
 static u8 *_gPlatformFwVersion = NULL; // internal use firmware version for MStar
 
 #ifdef CONFIG_ENABLE_ITO_MP_TEST
@@ -107,12 +109,6 @@ static u8 _gLogGestureInforType = 0;
 #endif //CONFIG_ENABLE_GESTURE_WAKEUP
 
 static u32 _gIsUpdateComplete = 0;
-
-//add by mike.li for create sys file node.[2015.06.25]
-static u32 mp_test_flag = 0;
-static int jrd_ctp_sysfs_init(void);
-static void jrd_ctp_sysfs_exit(void);
-//add end.
 
 static u8 *_gFwVersion = NULL; // customer firmware version
 
@@ -132,6 +128,14 @@ static struct proc_dir_entry *_gProcFirmwareDebugEntry = NULL;
 static struct proc_dir_entry *_gProcFirmwareSetDebugValueEntry = NULL;
 static struct proc_dir_entry *_gProcFirmwareSmBusDebugEntry = NULL;
 static struct proc_dir_entry *_gProcFirmwareSetDQMemValueEntry = NULL;
+//add by wkh begin
+static struct proc_dir_entry *_gProcTouchscreenInfo = NULL;
+
+static const struct file_operations info_proc_file_ops = {
+    .read = DrvMainProcfsTouchscreenInfoRead,
+    .write = DrvMainProcfsTouchscreenInfoWrite,
+};
+//end
 #ifdef CONFIG_ENABLE_ITO_MP_TEST
 static struct proc_dir_entry *_gProcMpTestEntry = NULL;
 static struct proc_dir_entry *_gProcMpTestLogEntry = NULL;
@@ -334,8 +338,8 @@ extern struct mutex g_QMutex;
 // GLOBAL VARIABLE DEFINITION
 /*=============================================================*/
 
-u32 SLAVE_I2C_ID_DBBUS = (0xC4>>1); //0x62 // for MSG21XX/MSG21XXA/MSG26XXM/MSG28XX
-//u32 SLAVE_I2C_ID_DBBUS = (0xB2>>1); //0x59 // for MSG22XX
+//u32 SLAVE_I2C_ID_DBBUS = (0xC4>>1); //0x62 // for MSG21XX/MSG21XXA/MSG26XXM/MSG28XX
+u32 SLAVE_I2C_ID_DBBUS = (0xB2>>1); //0x59 // for MSG22XX
 u32 SLAVE_I2C_ID_DWI2C = (0x4C>>1); //0x26 
 
 
@@ -354,7 +358,7 @@ u8 IS_GESTURE_DEBUG_MODE_ENABLED = 0;
 u8 IS_GESTURE_INFORMATION_MODE_ENABLED = 0;
 u8 IS_GESTURE_WAKEUP_MODE_SUPPORT_64_TYPES_ENABLED = 0;
 
-u8 IS_TOUCH_DRIVER_DEBUG_LOG_ENABLED = CONFIG_ENABLE_TOUCH_DRIVER_DEBUG_LOG;
+u8 TOUCH_DRIVER_DEBUG_LOG_LEVEL = CONFIG_TOUCH_DRIVER_DEBUG_LOG_LEVEL;
 u8 IS_FIRMWARE_DATA_LOG_ENABLED = CONFIG_ENABLE_FIRMWARE_DATA_LOG;
 u8 IS_FORCE_TO_UPDATE_FIRMWARE_ENABLED = 0;
 
@@ -393,6 +397,17 @@ u8 g_IsHotknotEnabled = 0;
 u8 g_IsBypassHotknot = 0;
 
 
+
+/*=============================================================*/
+// EXTERN FUNCTION DECLARATION
+/*=============================================================*/
+
+#ifdef CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM
+#ifdef CONFIG_ENABLE_CHARGER_DETECTION
+extern kal_bool upmu_is_chr_det(void);
+#endif //CONFIG_ENABLE_CHARGER_DETECTION
+#endif //CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM
+
 /*=============================================================*/
 // LOCAL FUNCTION DEFINITION
 /*=============================================================*/
@@ -407,7 +422,46 @@ static s32 _DrvMainHotknotRegistry(void);
 /*=============================================================*/
 
 //------------------------------------------------------------------------------//
+//add by wkh begin
 
+//------------------------------------------------------------------------------//
+ssize_t DrvMainProcfsTouchscreenInfoRead(struct file *pFile, char __user *pBuffer, size_t nCount, loff_t *pPos)
+{
+    u32 nLength = 0;
+	u16 nMajor = 0, nMinor = 0;
+	//u32 szInfo[100] = {0};
+    
+    //DBG("*** %s() _gFwVersion = %s ***\n", __func__, _gFwVersion);
+    // If file position is non-zero, then assume the string has been read and indicate there is no more data to be read.
+    if (*pPos != 0)
+    {
+        return 0;
+    }
+	
+    //strcat(szInfo, "Touchscreen\n");
+	
+    DrvIcFwLyrGetCustomerFirmwareVersion(&nMajor, &nMinor, &_gFwVersion);
+
+	//nLength = sprintf(pBuffer+nLength, "nMajor : %d, nMinor : %d\n", nMajor,nMinor);
+	//nLength = sprintf(pBuffer+nLength, "nMajor : %d\n", nMajor);
+	nLength = sprintf(pBuffer+nLength, "Msg2238 yeji firmware version : %s\n", _gFwVersion);
+
+    *pPos += nLength;
+
+    return nLength;
+}
+
+ssize_t DrvMainProcfsTouchscreenInfoWrite(struct file *pFile, const char __user *pBuffer, size_t nCount, loff_t *pPos)
+{
+	u16 nMajor = 0, nMinor = 0;
+
+    DrvIcFwLyrGetCustomerFirmwareVersion(&nMajor, &nMinor, &_gFwVersion);
+
+    DBG("*** %s() _gFwVersion = %s ***\n", __func__, _gFwVersion);
+
+    return nCount;
+}
+//end
 ssize_t DrvMainProcfsChipTypeRead(struct file *pFile, char __user *pBuffer, size_t nCount, loff_t *pPos)
 {
     u32 nLength = 0;
@@ -787,8 +841,8 @@ ssize_t DrvMainProcfsFirmwareDebugRead(struct file *pFile, char __user *pBuffer,
 ssize_t DrvMainProcfsFirmwareDebugWrite(struct file *pFile, const char __user *pBuffer, size_t nCount, loff_t *pPos)  
 {    
     u32 i;
-    char *pCh;
-    char *pData = NULL;  
+    char *pCh = NULL;
+    char *pStr = NULL;
 
     DBG("*** %s() ***\n", __func__);
 
@@ -803,23 +857,21 @@ ssize_t DrvMainProcfsFirmwareDebugWrite(struct file *pFile, const char __user *p
 
         DBG("nCount = %d\n", (int)nCount);
        
-        pData = kmalloc(nCount, GFP_KERNEL);
-        if (!pData)
-        {
-            return -ENOMEM;
-        }
+        memset(_gDebugBuf, 0, 1024);
 
-        if (copy_from_user(pData, pBuffer, nCount))
+        if (copy_from_user(_gDebugBuf, pBuffer, nCount))
         {
             DBG("copy_from_user() failed\n");
 
-            kfree(pData);
             return -EFAULT;
         }
 
+        _gDebugBuf[nCount] = '\0';
+        pStr = _gDebugBuf;
+        
         i = 0;
 
-        while ((pCh = strsep((char **)&pData, " ,")) && (i < MAX_DEBUG_REGISTER_NUM))
+        while ((pCh = strsep((char **)&pStr, " ,")) && (i < MAX_DEBUG_REGISTER_NUM))
         {
             DBG("pCh = %s\n", pCh);
             
@@ -831,8 +883,6 @@ ssize_t DrvMainProcfsFirmwareDebugWrite(struct file *pFile, const char __user *p
         _gDebugRegCount = i;
         
         DBG("_gDebugRegCount = %d\n", _gDebugRegCount);
-
-        kfree(pData);
     }
 
     return nCount;
@@ -897,8 +947,8 @@ ssize_t DrvMainProcfsFirmwareSetDebugValueRead(struct file *pFile, char __user *
 ssize_t DrvMainProcfsFirmwareSetDebugValueWrite(struct file *pFile, const char __user *pBuffer, size_t nCount, loff_t *pPos)  
 {    
     u32 i, j, k;
-    char *pCh;
-    char *pData = NULL;  
+    char *pCh = NULL;
+    char *pStr = NULL;  
 
     DBG("*** %s() ***\n", __func__);
 
@@ -909,25 +959,23 @@ ssize_t DrvMainProcfsFirmwareSetDebugValueWrite(struct file *pFile, const char _
 
         DBG("nCount = %d\n", (int)nCount);
 
-        pData = kmalloc(nCount, GFP_KERNEL);
-        if (!pData)
-        {
-            return -ENOMEM;
-        }
+        memset(_gDebugBuf, 0, 1024);
 
-        if (copy_from_user(pData, pBuffer, nCount))
+        if (copy_from_user(_gDebugBuf, pBuffer, nCount))
         {
             DBG("copy_from_user() failed\n");
 
-            kfree(pData);
             return -EFAULT;
         }
        
+        _gDebugBuf[nCount] = '\0';
+        pStr = _gDebugBuf;
+
         i = 0;
         j = 0;
         k = 0;
         
-        while ((pCh = strsep((char **)&pData, " ,")) && (i < 2))
+        while ((pCh = strsep((char **)&pStr, " ,")) && (i < 2))
         {
             DBG("pCh = %s\n", pCh);
 
@@ -965,8 +1013,6 @@ ssize_t DrvMainProcfsFirmwareSetDebugValueWrite(struct file *pFile, const char _
         DbBusIICNotUseBus();
         DbBusNotStopMCU();
         DbBusExitSerialDebugMode();
-
-        kfree(pData);
     }
     
     return nCount;
@@ -1028,7 +1074,7 @@ ssize_t DrvMainProcfsFirmwareSmBusDebugWrite(struct file *pFile, const char __us
     u32 i, j;
     char szCmdType[5] = {0};
     char *pCh = NULL;
-    char *pData = NULL;  
+    char *pStr = NULL;  
 
     DBG("*** %s() ***\n", __func__);
 
@@ -1043,17 +1089,12 @@ ssize_t DrvMainProcfsFirmwareSmBusDebugWrite(struct file *pFile, const char __us
 
         DBG("nCount = %d\n", (int)nCount);
        
-        pData = kmalloc(nCount, GFP_KERNEL);
-        if (!pData)
-        {
-            return -ENOMEM;
-        }
+        memset(_gDebugBuf, 0, 1024);
 
-        if (copy_from_user(pData, pBuffer, nCount))
+        if (copy_from_user(_gDebugBuf, pBuffer, nCount))
         {
             DBG("copy_from_user() failed\n");
 
-            kfree(pData);
             return -EFAULT;
         }
 
@@ -1061,10 +1102,13 @@ ssize_t DrvMainProcfsFirmwareSmBusDebugWrite(struct file *pFile, const char __us
         _gDebugCmdArguCount = 0;
         _gDebugReadDataSize = 0;
         
+        _gDebugBuf[nCount] = '\0';
+        pStr = _gDebugBuf;
+
         i = 0;
         j = 0;
 
-        while ((pCh = strsep((char **)&pData, " ,")) && (j < MAX_DEBUG_COMMAND_ARGUMENT_NUM))
+        while ((pCh = strsep((char **)&pStr, " ,")) && (j < MAX_DEBUG_COMMAND_ARGUMENT_NUM))
         {
             DBG("pCh = %s\n", pCh);
             
@@ -1094,8 +1138,6 @@ ssize_t DrvMainProcfsFirmwareSmBusDebugWrite(struct file *pFile, const char __us
 
             i ++;
         }
-
-        kfree(pData);
     }
 
     return nCount;
@@ -1150,8 +1192,8 @@ ssize_t DrvMainProcfsFirmwareSetDQMemValueRead(struct file *pFile, char __user *
 ssize_t DrvMainProcfsFirmwareSetDQMemValueWrite(struct file *pFile, const char __user *pBuffer, size_t nCount, loff_t *pPos)
 {
     u32 i, j, k;
-    char *pCh;
-    char *pData = NULL;
+    char *pCh = NULL;
+    char *pStr = NULL;
     u16 nRealDQMemAddr = 0;
     u32 nRealDQMemValue = 0;
 
@@ -1164,25 +1206,23 @@ ssize_t DrvMainProcfsFirmwareSetDQMemValueWrite(struct file *pFile, const char _
 
         DBG("nCount = %d\n", (int)nCount);
 
-        pData = kmalloc(nCount, GFP_KERNEL);
-        if (!pData)
-        {
-            return -ENOMEM;
-        }
+        memset(_gDebugBuf, 0, 1024);
 
-        if (copy_from_user(pData, pBuffer, nCount))
+        if (copy_from_user(_gDebugBuf, pBuffer, nCount))
         {
             DBG("copy_from_user() failed\n");
 
-            kfree(pData);
             return -EFAULT;
         }
+
+        _gDebugBuf[nCount] = '\0';
+        pStr = _gDebugBuf;
 
         i = 0;
         j = 0;
         k = 0;
 
-        while ((pCh = strsep((char **)&pData, " ,")) && (i < 2))
+        while ((pCh = strsep((char **)&pStr, " ,")) && (i < 2))
         {
             DBG("pCh = %s\n", pCh);
 
@@ -1228,8 +1268,6 @@ ssize_t DrvMainProcfsFirmwareSetDQMemValueWrite(struct file *pFile, const char _
             DBG("nRealDQMemValue Modify = %X\n", nRealDQMemValue);
             DrvIcFwLyrWriteDQMemValue(nRealDQMemAddr, nRealDQMemValue);
         }
-
-        kfree(pData);
     }
 
     return nCount;
@@ -1363,7 +1401,7 @@ ssize_t DrvMainProcfsMpTestScopeRead(struct file *pFile, char __user *pBuffer, s
 #if defined(CONFIG_ENABLE_TOUCH_DRIVER_FOR_MUTUAL_IC)
     DrvIcFwLyrGetMpTestScope(&g_TestScopeInfo);
 
-    nLength = sprintf(pBuffer, "%d,%d", g_TestScopeInfo.nMx, g_TestScopeInfo.nMy);
+    nLength = sprintf(pBuffer, "%d,%d,%d", g_TestScopeInfo.nMx, g_TestScopeInfo.nMy, g_TestScopeInfo.nKeyNum);
 #endif //CONFIG_ENABLE_TOUCH_DRIVER_FOR_MUTUAL_IC
 
     *pPos += nLength;
@@ -1608,7 +1646,7 @@ ssize_t DrvMainKObjectPacketStore(struct kobject *pKObj, struct kobj_attribute *
     return nCount;
 }
 
-static struct kobj_attribute packet_attr = __ATTR(packet, 0666, DrvMainKObjectPacketShow, DrvMainKObjectPacketStore);
+static struct kobj_attribute packet_attr = __ATTR(packet, 0664, DrvMainKObjectPacketShow, DrvMainKObjectPacketStore);
 
 /* Create a group of attributes so that we can create and destroy them all at once. */
 static struct attribute *attrs[] = {
@@ -1675,7 +1713,7 @@ ssize_t DrvMainProcfsQueryFeatureSupportStatusWrite(struct file *pFile, const ch
         }
         else if (nFeature == FEATURE_TOUCH_DRIVER_DEBUG_LOG)
         {
-            _gFeatureSupportStatus = IS_TOUCH_DRIVER_DEBUG_LOG_ENABLED;
+            _gFeatureSupportStatus = TOUCH_DRIVER_DEBUG_LOG_LEVEL;
         }
         else if (nFeature == FEATURE_FIRMWARE_DATA_LOG)
         {
@@ -1730,8 +1768,8 @@ ssize_t DrvMainProcfsChangeFeatureSupportStatusWrite(struct file *pFile, const c
 {    
     u32 i;
     u32 nFeature = 0, nNewValue = 0;
-    char *pCh;
-    char *pData = NULL;  
+    char *pCh = NULL;
+    char *pStr = NULL;  
 
     DBG("*** %s() ***\n", __func__);
 
@@ -1739,23 +1777,21 @@ ssize_t DrvMainProcfsChangeFeatureSupportStatusWrite(struct file *pFile, const c
     {
         DBG("nCount = %d\n", (int)nCount);
 
-        pData = kmalloc(nCount, GFP_KERNEL);
-        if (!pData)
-        {
-            return -ENOMEM;
-        }
+        memset(_gDebugBuf, 0, 1024);
 
-        if (copy_from_user(pData, pBuffer, nCount))
+        if (copy_from_user(_gDebugBuf, pBuffer, nCount))
         {
             DBG("copy_from_user() failed\n");
 
-            kfree(pData);
             return -EFAULT;
         }
        
+        _gDebugBuf[nCount] = '\0';
+        pStr = _gDebugBuf;
+        
         i = 0;
         
-        while ((pCh = strsep((char **)&pData, " ,")) && (i < 3))
+        while ((pCh = strsep((char **)&pStr, " ,")) && (i < 3))
         {
             DBG("pCh = %s\n", pCh);
 
@@ -1794,8 +1830,8 @@ ssize_t DrvMainProcfsChangeFeatureSupportStatusWrite(struct file *pFile, const c
         }
         else if (nFeature == FEATURE_TOUCH_DRIVER_DEBUG_LOG)
         {
-            IS_TOUCH_DRIVER_DEBUG_LOG_ENABLED = nNewValue;
-            _gFeatureSupportStatus = IS_TOUCH_DRIVER_DEBUG_LOG_ENABLED;
+            TOUCH_DRIVER_DEBUG_LOG_LEVEL = nNewValue;
+            _gFeatureSupportStatus = TOUCH_DRIVER_DEBUG_LOG_LEVEL;
         }
         else if (nFeature == FEATURE_FIRMWARE_DATA_LOG)
         {
@@ -1813,8 +1849,6 @@ ssize_t DrvMainProcfsChangeFeatureSupportStatusWrite(struct file *pFile, const c
         }
 
         DBG("*** _gFeatureSupportStatus = %d ***\n", _gFeatureSupportStatus);
-    
-        kfree(pData);
     }
     
     return nCount;
@@ -2592,7 +2626,7 @@ ssize_t DrvMainKObjectGestureDebugStore(struct kobject *pKObj, struct kobj_attri
     return nCount;
 }
 
-static struct kobj_attribute gesture_attr = __ATTR(gesture_debug, 0666, DrvMainKObjectGestureDebugShow, DrvMainKObjectGestureDebugStore);
+static struct kobj_attribute gesture_attr = __ATTR(gesture_debug, 0664, DrvMainKObjectGestureDebugShow, DrvMainKObjectGestureDebugStore);
 
 /* Create a group of attributes so that we can create and destroy them all at once. */
 static struct attribute *gestureattrs[] = {
@@ -3031,13 +3065,14 @@ s32 DrvMainTouchDeviceInitialize(void)
 
 #ifdef CONFIG_ENABLE_CHARGER_DETECTION 
         {
-            u8 szChargerStatus[20] = {0};
-     
-            DrvCommonReadFile("/sys/class/power_supply/battery/status", szChargerStatus, 20);
+#ifdef CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM
+            u32 nChargerStatus = 0; 
+
+            nChargerStatus = upmu_is_chr_det();
+
+            DBG("*** Battery Status : %d ***\n", nChargerStatus);
             
-            DBG("*** Battery Status : %s ***\n", szChargerStatus);
-            
-            if (strstr(szChargerStatus, "Charging") != NULL || strstr(szChargerStatus, "Full") != NULL || strstr(szChargerStatus, "Fully charged") != NULL)
+            if (nChargerStatus) // Charging
             {
                 DrvFwCtrlChargerDetection(1); // charger plug-in
             }
@@ -3045,12 +3080,28 @@ s32 DrvMainTouchDeviceInitialize(void)
             {
                 DrvFwCtrlChargerDetection(0); // charger plug-out
             }
+#else            
+            u8 szChargerStatus[20] = {0};
+     
+            DrvCommonReadFile("/sys/class/power_supply/battery/status", szChargerStatus, 20);
+            
+            DBG("*** Battery Status : %s ***\n", szChargerStatus);
+            
+            if (strstr(szChargerStatus, "Charging") != NULL || strstr(szChargerStatus, "Full") != NULL || strstr(szChargerStatus, "Fully charged") != NULL) // Charging
+            {
+                DrvFwCtrlChargerDetection(1); // charger plug-in
+            }
+            else // Not charging
+            {
+                DrvFwCtrlChargerDetection(0); // charger plug-out
+            }
+#endif //CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM
         }           
 #endif //CONFIG_ENABLE_CHARGER_DETECTION
 
 #ifdef CONFIG_ENABLE_PROXIMITY_DETECTION
 #if defined(CONFIG_TOUCH_DRIVER_RUN_ON_SPRD_PLATFORM) || defined(CONFIG_TOUCH_DRIVER_RUN_ON_QCOM_PLATFORM)
-        tsps_assist_register_callback("msg2xxx", &DrvPlatformLyrTpPsEnable, &DrvPlatformLyrGetTpPsData);
+//        tsps_assist_register_callback("msg2xxx", &DrvPlatformLyrTpPsEnable, &DrvPlatformLyrGetTpPsData);
 #elif defined(CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM)
         tObjPs.polling = 0; //interrupt mode
         tObjPs.sensor_operate = DrvPlatformLyrTpPsOperate;
@@ -3077,19 +3128,22 @@ void DrvMainRemoveProcfsDirEntry(void)
 #ifdef CONFIG_ENABLE_GLOVE_MODE
     if (_gProcGloveModeEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_GLOVE_MODE, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_GLOVE_MODE, _gProcDeviceEntry);  
+        _gProcGloveModeEntry = NULL;  		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_GLOVE_MODE);
     }
 
     if (_gProcOpenGloveModeEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_OPEN_GLOVE_MODE, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_OPEN_GLOVE_MODE, _gProcDeviceEntry);   
+        _gProcOpenGloveModeEntry = NULL; 		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_OPEN_GLOVE_MODE);
     }
 
     if (_gProcCloseGloveModeEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_CLOSE_GLOVE_MODE, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_CLOSE_GLOVE_MODE, _gProcDeviceEntry);   
+        _gProcCloseGloveModeEntry = NULL; 		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_CLOSE_GLOVE_MODE);
     }
 #endif //CONFIG_ENABLE_GLOVE_MODE
@@ -3098,6 +3152,7 @@ void DrvMainRemoveProcfsDirEntry(void)
     if (_gProcJniMethodEntry != NULL)
     {
         remove_proc_entry(PROC_NODE_JNI_NODE, _gProcDeviceEntry);    		
+        _gProcJniMethodEntry = NULL;
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_JNI_NODE);
     }
 #endif //CONFIG_ENABLE_JNI_INTERFACE	
@@ -3105,7 +3160,8 @@ void DrvMainRemoveProcfsDirEntry(void)
 #ifdef CONFIG_ENABLE_COUNT_REPORT_RATE
     if (_gProcReportRateEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_REPORT_RATE, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_REPORT_RATE, _gProcDeviceEntry);    	
+        _gProcReportRateEntry = NULL;	
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_REPORT_RATE);
     }
 #endif //CONFIG_ENABLE_COUNT_REPORT_RATE
@@ -3113,20 +3169,23 @@ void DrvMainRemoveProcfsDirEntry(void)
 #ifdef CONFIG_ENABLE_GESTURE_WAKEUP
     if (_gProcGestureWakeupModeEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_GESTURE_WAKEUP_MODE, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_GESTURE_WAKEUP_MODE, _gProcDeviceEntry);  
+        _gProcGestureWakeupModeEntry = NULL;  		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_GESTURE_WAKEUP_MODE);
     }
 #ifdef CONFIG_ENABLE_GESTURE_DEBUG_MODE
     if (_gProcGestureDebugModeEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_GESTURE_DEBUG_MODE, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_GESTURE_DEBUG_MODE, _gProcDeviceEntry);    	
+        _gProcGestureDebugModeEntry = NULL;	
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_GESTURE_DEBUG_MODE);
     }
 #endif //CONFIG_ENABLE_GESTURE_DEBUG_MODE
 #ifdef CONFIG_ENABLE_GESTURE_INFORMATION_MODE
     if (_gProcGestureInforModeEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_GESTURE_INFORMATION_MODE, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_GESTURE_INFORMATION_MODE, _gProcDeviceEntry);  
+        _gProcGestureInforModeEntry = NULL;  		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_GESTURE_INFORMATION_MODE);
     }
 #endif //CONFIG_ENABLE_GESTURE_INFORMATION_MODE
@@ -3134,31 +3193,36 @@ void DrvMainRemoveProcfsDirEntry(void)
 
     if (_gProcFirmwareModeEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_FIRMWARE_MODE, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_FIRMWARE_MODE, _gProcDeviceEntry);    
+        _gProcFirmwareModeEntry = NULL;		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_FIRMWARE_MODE);
     }
 
     if (_gProcFirmwareSensorEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_FIRMWARE_SENSOR, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_FIRMWARE_SENSOR, _gProcDeviceEntry);  
+        _gProcFirmwareSensorEntry = NULL; 		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_FIRMWARE_SENSOR);
     }
 
     if (_gProcFirmwarePacketHeaderEntry != NULL)
     {
         remove_proc_entry(PROC_NODE_FIRMWARE_PACKET_HEADER, _gProcDeviceEntry);    		
+        _gProcFirmwarePacketHeaderEntry = NULL;
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_FIRMWARE_PACKET_HEADER);
     }
 
     if (_gProcQueryFeatureSupportStatusEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_QUERY_FEATURE_SUPPORT_STATUS, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_QUERY_FEATURE_SUPPORT_STATUS, _gProcDeviceEntry);   
+        _gProcQueryFeatureSupportStatusEntry = NULL; 		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_QUERY_FEATURE_SUPPORT_STATUS);
     }
 
     if (_gProcChangeFeatureSupportStatusEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_CHANGE_FEATURE_SUPPORT_STATUS, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_CHANGE_FEATURE_SUPPORT_STATUS, _gProcDeviceEntry);  
+        _gProcChangeFeatureSupportStatusEntry = NULL;  		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_CHANGE_FEATURE_SUPPORT_STATUS);
     }
 
@@ -3166,24 +3230,28 @@ void DrvMainRemoveProcfsDirEntry(void)
     if (_gProcMpTestEntry != NULL)
     {
         remove_proc_entry(PROC_NODE_MP_TEST, _gProcDeviceEntry);    		
+        _gProcMpTestEntry = NULL;
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_MP_TEST);
     }
 
     if (_gProcMpTestLogEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_MP_TEST_LOG, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_MP_TEST_LOG, _gProcDeviceEntry);  
+        _gProcMpTestLogEntry = NULL;  		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_MP_TEST_LOG);
     }
 
     if (_gProcMpTestFailChannelEntry != NULL)
     {
         remove_proc_entry(PROC_NODE_MP_TEST_FAIL_CHANNEL, _gProcDeviceEntry);    		
+        _gProcMpTestFailChannelEntry = NULL;
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_MP_TEST_FAIL_CHANNEL);
     }
 
     if (_gProcMpTestScopeEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_MP_TEST_SCOPE, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_MP_TEST_SCOPE, _gProcDeviceEntry); 
+        _gProcMpTestScopeEntry = NULL;   		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_MP_TEST_SCOPE);
     }
 #endif //CONFIG_ENABLE_ITO_MP_TEST
@@ -3191,90 +3259,105 @@ void DrvMainRemoveProcfsDirEntry(void)
     if (_gProcFirmwareSetDQMemValueEntry != NULL)
     {
         remove_proc_entry(PROC_NODE_FIRMWARE_SET_DQMEM_VALUE, _gProcDeviceEntry);    		
+        _gProcFirmwareSetDQMemValueEntry = NULL;
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_FIRMWARE_SET_DQMEM_VALUE);
     }
 
     if (_gProcFirmwareSmBusDebugEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_FIRMWARE_SMBUS_DEBUG, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_FIRMWARE_SMBUS_DEBUG, _gProcDeviceEntry);    
+        _gProcFirmwareSmBusDebugEntry = NULL;		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_FIRMWARE_SMBUS_DEBUG);
     }
 
     if (_gProcFirmwareSetDebugValueEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_FIRMWARE_SET_DEBUG_VALUE, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_FIRMWARE_SET_DEBUG_VALUE, _gProcDeviceEntry);  
+        _gProcFirmwareSetDebugValueEntry = NULL;  		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_FIRMWARE_SET_DEBUG_VALUE);
     }
 
     if (_gProcFirmwareDebugEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_FIRMWARE_DEBUG, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_FIRMWARE_DEBUG, _gProcDeviceEntry);    	
+        _gProcFirmwareDebugEntry = NULL;	
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_FIRMWARE_DEBUG);
     }
 
     if (_gProcSdCardFirmwareUpdateEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_SD_CARD_FIRMWARE_UPDATE, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_SD_CARD_FIRMWARE_UPDATE, _gProcDeviceEntry);  
+        _gProcSdCardFirmwareUpdateEntry = NULL;  		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_SD_CARD_FIRMWARE_UPDATE);
     }
 
     if (_gProcSeLinuxLimitFirmwareUpdateEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_SELINUX_LIMIT_FIRMWARE_UPDATE, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_SELINUX_LIMIT_FIRMWARE_UPDATE, _gProcDeviceEntry);
+        _gProcSeLinuxLimitFirmwareUpdateEntry = NULL;    		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_SELINUX_LIMIT_FIRMWARE_UPDATE);
     }
 
     if (_gProcDeviceDriverVersionEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_DEVICE_DRIVER_VERSION, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_DEVICE_DRIVER_VERSION, _gProcDeviceEntry);
+        _gProcDeviceDriverVersionEntry = NULL;    		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_DEVICE_DRIVER_VERSION);
     }
 
     if (_gProcPlatformFirmwareVersionEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_PLATFORM_FIRMWARE_VERSION, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_PLATFORM_FIRMWARE_VERSION, _gProcDeviceEntry);
+        _gProcPlatformFirmwareVersionEntry = NULL;    		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_PLATFORM_FIRMWARE_VERSION);
     }
 
     if (_gProcCustomerFirmwareVersionEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_CUSTOMER_FIRMWARE_VERSION, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_CUSTOMER_FIRMWARE_VERSION, _gProcDeviceEntry);
+        _gProcCustomerFirmwareVersionEntry = NULL;    		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_CUSTOMER_FIRMWARE_VERSION);
     }
 
     if (_gProcApkFirmwareUpdateEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_FIRMWARE_UPDATE, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_FIRMWARE_UPDATE, _gProcDeviceEntry);
+        _gProcApkFirmwareUpdateEntry = NULL;    		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_FIRMWARE_UPDATE);
     }
 
     if (_gProcFirmwareDataEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_FIRMWARE_DATA, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_FIRMWARE_DATA, _gProcDeviceEntry);
+        _gProcFirmwareDataEntry = NULL;    		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_FIRMWARE_DATA);
     }
 
     if (_gProcChipTypeEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_CHIP_TYPE, _gProcDeviceEntry);    		
+        remove_proc_entry(PROC_NODE_CHIP_TYPE, _gProcDeviceEntry);
+        _gProcChipTypeEntry = NULL;    		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_CHIP_TYPE);
     }
 
     if (_gProcDeviceEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_DEVICE, _gProcMsTouchScreenMsg20xxEntry);    		
+        remove_proc_entry(PROC_NODE_DEVICE, _gProcMsTouchScreenMsg20xxEntry);
+        _gProcDeviceEntry = NULL;    		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_DEVICE);
     }
 
     if (_gProcMsTouchScreenMsg20xxEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_MS_TOUCHSCREEN_MSG20XX, _gProcClassEntry);    		
+        remove_proc_entry(PROC_NODE_MS_TOUCHSCREEN_MSG20XX, _gProcClassEntry);
+        _gProcMsTouchScreenMsg20xxEntry = NULL;    		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_MS_TOUCHSCREEN_MSG20XX);
     }
 
     if (_gProcClassEntry != NULL)
     {
-        remove_proc_entry(PROC_NODE_CLASS, NULL);    		
+        remove_proc_entry(PROC_NODE_CLASS, NULL);
+        _gProcClassEntry = NULL;    		
         DBG("Remove procfs file node(%s) OK!\n", PROC_NODE_CLASS);
     }
 }
@@ -3331,7 +3414,17 @@ static s32 _DrvMainCreateProcfsDirEntry(void)
     {
         DBG("Create procfs file node(%s) OK!\n", PROC_NODE_FIRMWARE_UPDATE);
     }
-
+    //add by wkh begin
+	_gProcTouchscreenInfo = proc_mkdir("touchscreen",NULL);
+    if (NULL == proc_create("touchscreen/ts_information", 0644, NULL, &info_proc_file_ops))
+    {
+        DBG("Failed to create procfs file node(%s)!\n", PROC_NODE_CHIP_TYPE);
+    }   
+    else 
+    {
+        DBG("Create procfs file node(%s) OK!\n", PROC_NODE_CHIP_TYPE);
+    }
+	//end
     _gProcCustomerFirmwareVersionEntry = proc_create(PROC_NODE_CUSTOMER_FIRMWARE_VERSION, PROCFS_AUTHORITY, _gProcDeviceEntry, &_gProcCustomerFirmwareVersion);
     if (NULL == _gProcCustomerFirmwareVersionEntry)
     {
@@ -3700,13 +3793,10 @@ static s32 _DrvMainCreateProcfsDirEntry(void)
     {
         DBG("Create procfs file node(%s) OK!\n", PROC_NODE_SELINUX_LIMIT_FIRMWARE_UPDATE);
     }
-//add by mike.li for create sys file node[2015.06.25]
-    nRetVal = jrd_ctp_sysfs_init();
-	if (nRetVal < 0)
-		jrd_ctp_sysfs_exit();
 
     return nRetVal;
 }
+
 #ifdef CONFIG_ENABLE_HOTKNOT
 //register hotknot ioctl handler
 static s32 _DrvMainHotknotRegistry(void)
@@ -3736,199 +3826,3 @@ static s32 _DrvMainHotknotRegistry(void)
     return nRetVal;    
 }
 #endif //CONFIG_ENABLE_HOTKNOT
-
-//add by mike.li for create '/sys/CTP/' file node.[2015.06.25]
-static int open_retval = -1;	// 0 successful
-static int short_retval = -1;	// 0 successful
-extern void DrvFwCtrlGetCustomerFirmwareVersion(u16 *pMajor, u16 *pMinor, u8 **ppVersion);
-extern char *DrvMpTestGetTestDataLog_Show(ItoTestMode_e eItoTestMode, char **pDataLog);
-extern char *DrvMpTestGetTestFailChannel_Show(ItoTestMode_e eItoTestMode, char **pFailChannel);
-extern void DrvOpenTestFailChannel_Save(void);
-
-static ssize_t jrd_tp_ic_info_show(struct device *dev,
-				   struct device_attribute *attr, char *buf)
-{
-	int count = 0;
-
-	u16 p_major = 0;
-	u16 p_minor = 0;
-	u8 *pp_version = NULL;
-
-	DrvFwCtrlGetCustomerFirmwareVersion(&p_major, &p_minor, &pp_version);
-
-	count +=snprintf(buf + count, PAGE_SIZE - count,"IC_Version: Mstar2238\n");
-	count +=snprintf(buf + count, PAGE_SIZE - count,"Model Info: YEJI\n");
-	count +=snprintf(buf + count, PAGE_SIZE - count,"FW_Version: Major:0x%02X Minor:0x%02X\n", p_major, p_minor);
-
-	return count;
-
-}
-
-static ssize_t jrd_read_rawdata_show(struct device *dev,
-				   struct device_attribute *attr, char *buf)
-{
-	char *s = buf;
-
-	if (mp_test_flag) {
-		s = DrvMpTestGetTestDataLog_Show(ITO_TEST_MODE_OPEN_TEST, &s);
-		if (open_retval != 0)
-			s = DrvMpTestGetTestFailChannel_Show(ITO_TEST_MODE_OPEN_TEST, &s);
-
-		s = DrvMpTestGetTestDataLog_Show(ITO_TEST_MODE_SHORT_TEST, &s);
-		if (short_retval != 0)
-			s = DrvMpTestGetTestFailChannel_Show(ITO_TEST_MODE_SHORT_TEST, &s);
-	} else {
-		s += sprintf(s, "%s", "Please cat sys/CTP/rd_result first!\n");
-	}
-
-	return (s-buf);
-}
-
-static ssize_t jrd_read_rawdata_store(struct device *dev,
-				    struct device_attribute *attr,
-				    const char *buf, size_t size)
-{
-	return size;
-}
-
-static ssize_t jrd_rawdata_result_show(struct device *dev,
-				   struct device_attribute *attr, char *buf)
-{
-	char *s = buf;
-
-	//open test
-	s += sprintf(s, "**************************\n");
-	_gItoTestMode = ITO_TEST_MODE_OPEN_TEST;
-	DrvIcFwLyrScheduleMpTestWork(ITO_TEST_MODE_OPEN_TEST);
-	open_retval = DrvIcFwLyrGetMpTestResult();
-	if (open_retval != 0) {
-		s += sprintf(s, "Open Test: FAIL [%d]!\n", open_retval);
-		//save fail channel data for rawdata store.
-		DrvOpenTestFailChannel_Save();
-		s = DrvMpTestGetTestFailChannel_Show(ITO_TEST_MODE_OPEN_TEST, &s);
-	} else if (open_retval == 0){
-		s += sprintf(s, "Open Test: PASS\n\n");
-	}
-
-	//short test
-	s += sprintf(s, "**************************\n");
-	_gItoTestMode = ITO_TEST_MODE_SHORT_TEST;
-	DrvIcFwLyrScheduleMpTestWork(ITO_TEST_MODE_SHORT_TEST);
-	//msleep(3500);	//make sure have enough time to test.
-	short_retval = DrvIcFwLyrGetMpTestResult();
-	if (short_retval != 0) {
-		s += sprintf(s, "Short Test: FAIL [%d]!\n", short_retval);
-		s = DrvMpTestGetTestFailChannel_Show(ITO_TEST_MODE_SHORT_TEST, &s);
-	} else if (short_retval == 0){
-		s += sprintf(s, "Short Test: PASS\n\n");
-	}
-
-	s += sprintf(s, "**************************\n");
-	if (open_retval == 0 && short_retval == 0)
-		s += sprintf(s,"PASS\n");
-	else
-		s += sprintf(s,"FAIL\n");
-
-	mp_test_flag = 1;
-
-	return (s-buf);
-}
-
-static ssize_t jrd_rawdata_result_store(struct device *dev,
-				    struct device_attribute *attr,
-				    const char *buf, size_t size)
-{
-	return size;
-}
-
-static ssize_t jrd_tp_debug_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-    return sprintf(buf, "tp_dbg = %d\n", tp_dbg);
-}
-
-static ssize_t jrd_tp_debug_store(struct device *dev,
-				struct device_attribute *attr, const char *buf, size_t nSize)
-{
-	if (buf != NULL)
-		sscanf(buf, "%d", &tp_dbg);
-
-	return nSize;
-}
-
-#ifdef CONFIG_ENABLE_GESTURE_WAKEUP
-/*add by Yang.XU for gesture func support.
-	g_GestureWakeupMode[0]; 
-	0: close gesture function,
-	1: open gesture function.
-*/
-static ssize_t jrd_gesture_switch_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	printk("coco: g_GestureWakeupMode[0] = %x\n", g_GestureWakeupMode[0]);
-
-	return sprintf(buf, "g_GestureWakeupMode = %d\n", g_GestureWakeupMode[0]);
-}
-
-
-static ssize_t jrd_gesture_switch_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t size)
-{
-	/*	fix me.
-	if (data->suspended)
-		return -EINVAL;
-	*/
-
-	if (buf != NULL)
-			sscanf(buf, "%d", &g_GestureWakeupMode[0]); //convert type
-
-	printk("coco: g_GestureWakeupMode = %x\n", g_GestureWakeupMode[0]);
-
-	return size;
-}
-
-static DEVICE_ATTR(jrd_gesture_switch, 0664, jrd_gesture_switch_show, jrd_gesture_switch_store);
-#endif
-
-static DEVICE_ATTR(jrd_tp_ic_info, 0644, jrd_tp_ic_info_show, NULL);
-static DEVICE_ATTR(firm_ver, 0644, jrd_tp_ic_info_show, NULL);
-static DEVICE_ATTR(rawdata, 0644, jrd_read_rawdata_show, jrd_read_rawdata_store);
-static DEVICE_ATTR(rd_result, 0644, jrd_rawdata_result_show, jrd_rawdata_result_store);
-static DEVICE_ATTR(jrd_ctp_debug, 0644, jrd_tp_debug_show, jrd_tp_debug_store);
-
-static struct attribute *TP_sysfs_attrs[] = {
-	&dev_attr_jrd_tp_ic_info.attr,
-	&dev_attr_firm_ver.attr,
-	&dev_attr_rawdata.attr,
-	&dev_attr_rd_result.attr,
-	&dev_attr_jrd_ctp_debug.attr,
-	#ifdef CONFIG_ENABLE_GESTURE_WAKEUP
-	&dev_attr_jrd_gesture_switch.attr,
-	#endif
-	NULL,
-};
-static struct kobject *TP_ctrl_kobj = NULL;
-static struct attribute_group TP_attr_group = {
-        .attrs = TP_sysfs_attrs,
-};
-
-static int jrd_ctp_sysfs_init(void)
-{
-	DBG("Start to Create TP_sysfs_init.");
-
-	TP_ctrl_kobj = kobject_create_and_add("CTP", NULL);
-	if (!TP_ctrl_kobj){
-		printk("Create TP_sysfs_init failed!\n");
-		return -ENOMEM;
-	}
-	return sysfs_create_group(TP_ctrl_kobj, &TP_attr_group);
-}
-
-static void jrd_ctp_sysfs_exit(void)
-{
-	sysfs_remove_group(TP_ctrl_kobj, &TP_attr_group);
-	kobject_put(TP_ctrl_kobj);
-	printk("TP_sysfs_exit!\n");
-}
-//add by mike.li for create '/sys/CTP/' file node.[2015.06.25]

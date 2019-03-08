@@ -105,7 +105,10 @@
 /*--------------------------------------------------------------------------*/
 /* GLOBAL FUNCTION DECLARATION                                              */
 /*--------------------------------------------------------------------------*/
-
+//add by wkh begin
+extern ssize_t DrvMainProcfsTouchscreenInfoRead(struct file *pFile, char __user *pBuffer, size_t nCount, loff_t *pPos);
+extern ssize_t DrvMainProcfsTouchscreenInfoWrite(struct file *pFile, const char __user *pBuffer, size_t nCount, loff_t *pPos);
+//end
 extern ssize_t DrvMainProcfsChipTypeRead(struct file *pFile, char __user *pBuffer, size_t nCount, loff_t *pPos);
 extern ssize_t DrvMainProcfsChipTypeWrite(struct file *pFile, const char __user *pBuffer, size_t nCount, loff_t *pPos);
 extern ssize_t DrvMainProcfsFirmwareDataRead(struct file *pFile, char __user *pBuffer, size_t nCount, loff_t *pPos);

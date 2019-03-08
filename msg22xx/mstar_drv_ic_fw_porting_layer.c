@@ -292,20 +292,20 @@ void DrvIcFwLyrOpenGloveMode(void)
 {
 //    DBG("*** %s() ***\n", __func__);
 
-    DrvIcFwCtrlOpenGloveMode();
+    DrvFwCtrlOpenGloveMode();
 }
 
 void DrvIcFwLyrCloseGloveMode(void)
 {
 //	  DBG("*** %s() ***\n", __func__);
-    DrvIcFwCtrlCloseGloveMode();
+    DrvFwCtrlCloseGloveMode();
 }
 
 void DrvIcFwLyrGetGloveInfo(u8 *pGloveMode)
 {
 //    DBG("*** %s() ***\n", __func__);
 
-    DrvIcFwCtrlGetGloveInfo(pGloveMode);
+    DrvFwCtrlGetGloveInfo(pGloveMode);
 }
 #endif //CONFIG_ENABLE_GLOVE_MODE
 //------------------------------------------------------------------------------//

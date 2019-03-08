@@ -44,10 +44,18 @@ extern u32 SLAVE_I2C_ID_DWI2C;
 #ifdef CONFIG_TP_HAVE_KEY
 extern const int g_TpVirtualKey[];
 
+#ifdef CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM
 #ifdef CONFIG_ENABLE_REPORT_KEY_WITH_COORDINATE
 extern const int g_TpVirtualKeyDimLocal[][4];
 #endif //CONFIG_ENABLE_REPORT_KEY_WITH_COORDINATE
+#endif //CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM
 #endif //CONFIG_TP_HAVE_KEY
+
+#if defined(CONFIG_TOUCH_DRIVER_RUN_ON_SPRD_PLATFORM) || defined(CONFIG_TOUCH_DRIVER_RUN_ON_QCOM_PLATFORM)
+#ifdef CONFIG_ENABLE_PROXIMITY_DETECTION
+extern struct input_dev *g_ProximityInputDevice;
+#endif //CONFIG_ENABLE_PROXIMITY_DETECTION
+#endif //CONFIG_TOUCH_DRIVER_RUN_ON_SPRD_PLATFORM || CONFIG_TOUCH_DRIVER_RUN_ON_QCOM_PLATFORM
 
 extern struct input_dev *g_InputDevice;
 
@@ -87,7 +95,7 @@ extern struct timeval g_StartTime;
 
 static u8 _gTpVendorCode[3] = {0};
 
-//static u8 _gDwIicInfoData[1024];
+static u8 _gDwIicInfoData[1024];
 static u8 _gOneDimenFwData[MSG22XX_FIRMWARE_MAIN_BLOCK_SIZE*1024+MSG22XX_FIRMWARE_INFO_BLOCK_SIZE] = {0}; // used for MSG22XX
 
 #ifdef CONFIG_UPDATE_FIRMWARE_BY_SW_ID
@@ -95,8 +103,10 @@ static u8 _gOneDimenFwData[MSG22XX_FIRMWARE_MAIN_BLOCK_SIZE*1024+MSG22XX_FIRMWAR
  * Note.
  * Please modify the name of the below .h depends on the vendor TP that you are using.
  */
-//modify by Yang.XU for upgrade fw to V5.15[2015.10.12][PR1063126]
-#include "msg22xx_xxxx_v15_update_bin.h"
+#include "msg21xxa_xxxx_update_bin.h" // for MSG21xxA
+#include "msg21xxa_yyyy_update_bin.h"
+
+#include "msg22xx_xxxx_update_bin.h" // for MSG22xx
 #include "msg22xx_yyyy_update_bin.h"
 
 static u32 _gUpdateRetryCount = UPDATE_FIRMWARE_RETRY_COUNT;
@@ -113,6 +123,11 @@ static u32 _gGestureWakeupValue[2] = {0};
 #ifdef CONFIG_ENABLE_CHARGER_DETECTION
 static u8 _gChargerPlugIn = 0;
 #endif //CONFIG_ENABLE_CHARGER_DETECTION
+
+#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL
+static u8 _gCurrPress[MAX_TOUCH_NUM] = {0};
+static u8 _gPrevTouchStatus = 0;
+#endif //CONFIG_ENABLE_TYPE_B_PROTOCOL
 
 static u8 _gIsDisableFinagerTouch = 0;
 
@@ -150,7 +165,7 @@ u32 g_LogGestureInfor[GESTURE_WAKEUP_INFORMATION_PACKET_LENGTH] = {0};
 #ifdef CONFIG_SUPPORT_64_TYPES_GESTURE_WAKEUP_MODE // support at most 64 types of gesture wakeup mode
 u32 g_GestureWakeupMode[2] = {0xFFFFFFFF, 0xFFFFFFFF};
 #else                                              // support at most 16 types of gesture wakeup mode
-u32 g_GestureWakeupMode[2] = {0x00000000, 0x00000000};	//changed by Yang.XU, set close double click to default.
+u32 g_GestureWakeupMode[2] = {0x0000FFFF, 0x00000000};
 #endif //CONFIG_SUPPORT_64_TYPES_GESTURE_WAKEUP_MODE
 
 u8 g_GestureWakeupFlag = 0;
@@ -191,7 +206,6 @@ static s32 _DrvFwCtrlMsg22xxUpdateFirmware(u8 szFwData[][1024], EmemType_e eEmem
 // LOCAL FUNCTION DEFINITION
 /*=============================================================*/
 
-#if 0
 static void _DrvFwCtrlEraseEmemC32(void)
 {
     DBG("*** %s() ***\n", __func__);
@@ -269,7 +283,6 @@ static void _DrvFwCtrlEraseEmemC33(EmemType_e eEmemType)
         RegSetLByteValue(0x160E, 0x08); //erase all block
     }
 }
-#endif
 
 static void _DrvFwCtrlMsg22xxGetTpVendorCode(u8 *pTpVendorCode)
 {
@@ -330,12 +343,110 @@ static void _DrvFwCtrlMsg22xxGetTpVendorCode(u8 *pTpVendorCode)
     }
 }
 
-#ifdef CONFIG_UPDATE_FIRMWARE_BY_SW_ID
+static u16 _DrvFwCtrlMsg22xxGetTrimByte1(void)
+{
+    u16 nRegData = 0;
+    u16 nTrimByte1 = 0;
+    
+    DBG("*** %s() ***\n", __func__);
+
+    RegSet16BitValue(0x161E, 0xBEAF); 
+    RegSet16BitValue(0x1608, 0x0006); 
+    RegSet16BitValue(0x160E, 0x0010); 
+    RegSet16BitValue(0x1608, 0x1006); 
+    RegSet16BitValue(0x1600, 0x0001); 
+    RegSet16BitValue(0x160E, 0x0010);
+    
+    mdelay(10);
+    
+    RegSet16BitValue(0x1608, 0x1846);
+    RegSet16BitValue(0x160E, 0x0010);
+    
+    mdelay(10);
+
+    nRegData = RegGet16BitValue(0x1624);
+    nRegData = nRegData & 0xFF;
+
+    RegSet16BitValue(0x161E, 0x0000);
+
+    nTrimByte1 = nRegData;
+
+    DBG("nTrimByte1 = 0x%X ***\n", nTrimByte1);
+    
+    return nTrimByte1;
+}
+
+static void _DrvFwCtrlMsg22xxChangeVoltage(void)
+{
+    u16 nTrimValue = 0;
+    u16 nNewTrimValue = 0;
+    u16 nTempValue = 0;
+    
+    DBG("*** %s() ***\n", __func__);
+
+    RegSet16BitValue(0x1840, 0xA55A);
+	
+    udelay(1000); // delay 1 ms
+
+    nTrimValue = RegGet16BitValue(0x1820);
+
+    udelay(1000); // delay 1 ms
+    
+    nTrimValue = nTrimValue & 0x1F;
+    nTempValue = 0x1F & nTrimValue;
+    nNewTrimValue = (nTempValue + 0x07);
+    
+    if (nNewTrimValue >= 0x20)
+    {
+        nNewTrimValue = nNewTrimValue - 0x20;
+    }
+    else
+    {
+        nNewTrimValue = nNewTrimValue;
+    }
+    
+    if ((nTempValue & 0x10) != 0x10)
+    {
+        if (nNewTrimValue >= 0x0F && nNewTrimValue < 0x1F)
+        {
+            nNewTrimValue = 0x0F;
+        }
+        else
+        {
+            nNewTrimValue = nNewTrimValue;
+        }
+    }
+
+    RegSet16BitValue(0x1842, nNewTrimValue);
+
+    udelay(1000); // delay 1 ms
+
+    RegSet16BitValueOn(0x1842, BIT5);
+
+    udelay(1000); // delay 1 ms
+}
+
+static void _DrvFwCtrlMsg22xxRestoreVoltage(void)
+{
+    DBG("*** %s() ***\n", __func__);
+
+    RegSet16BitValueOff(0x1842, BIT5);
+
+    udelay(1000); // delay 1 ms
+
+    RegSet16BitValue(0x1840, 0x0000);
+
+    udelay(1000); // delay 1 ms
+}
+
 static void _DrvFwCtrlMsg22xxEraseEmem(EmemType_e eEmemType)
 {
-    u32 i;
+    u32 i = 0;
+    u32 nEraseCount = 0;
+    u32 nMaxEraseTimes = 0;
     u32 nTimeOut = 0;
     u16 nRegData = 0;
+    u16 nTrimByte1 = 0;
     
     DBG("*** %s() eEmemType = %d ***\n", __func__, eEmemType);
 
@@ -349,6 +460,10 @@ static void _DrvFwCtrlMsg22xxEraseEmem(EmemType_e eEmemType)
     // Stop mcu
     RegSet16BitValue(0x0FE6, 0x0001);
 
+    nTrimByte1 = _DrvFwCtrlMsg22xxGetTrimByte1();
+    
+    _DrvFwCtrlMsg22xxChangeVoltage();
+
     // Disable watchdog
     RegSetLByteValue(0x3C60, 0x55);
     RegSetLByteValue(0x3C61, 0xAA);
@@ -357,71 +472,126 @@ static void _DrvFwCtrlMsg22xxEraseEmem(EmemType_e eEmemType)
     RegSetLByteValue(0x161A, 0xBA);
     RegSetLByteValue(0x161B, 0xAB);
 
-    if (eEmemType == EMEM_ALL) // 48KB + 512Byte
+    if (nTrimByte1 == 0xCA)
     {
-        DBG("Erase all block\n");
+        nMaxEraseTimes = MAX_ERASE_EFLASH_TIMES;
+    }
+    else
+    {
+        nMaxEraseTimes = 1;	
+    }
 
-        // Clear pce
-        RegSetLByteValue(0x1618, 0x80);
-        mdelay(100);
-
-        // Chip erase
-        RegSet16BitValue(0x160E, BIT3);
-
-        DBG("Wait erase done flag\n");
-        
-        while (1) // Wait erase done flag
+    for (nEraseCount = 0; nEraseCount < nMaxEraseTimes; nEraseCount ++)
+    {
+        if (eEmemType == EMEM_ALL) // 48KB + 512Byte
         {
-            nRegData = RegGet16BitValue(0x1610); // Memory status
-            nRegData = nRegData & BIT1;
+            DBG("Erase all block %d times\n", nEraseCount);
+
+            // Clear pce
+            RegSetLByteValue(0x1618, 0x80);
+            mdelay(100);
+
+            // Chip erase
+            RegSet16BitValue(0x160E, BIT3);
+
+            DBG("Wait erase done flag\n");
+
+            while (1) // Wait erase done flag
+            {
+                nRegData = RegGet16BitValue(0x1610); // Memory status
+                nRegData = nRegData & BIT1;
             
-            DBG("Wait erase done flag nRegData = 0x%x\n", nRegData);
+                DBG("Wait erase done flag nRegData = 0x%x\n", nRegData);
 
-            if (nRegData == BIT1)
-            {
-                break;		
-            }
-            mdelay(50);
+                if (nRegData == BIT1)
+                {
+                    break;		
+                }
 
-            if ((nTimeOut ++) > 30)
-            {
-                DBG("Erase all block failed. Timeout.\n");
+                mdelay(50);
 
-                goto EraseEnd;
+                if ((nTimeOut ++) > 30)
+                {
+                    DBG("Erase all block %d times failed. Timeout.\n", nEraseCount);
+
+                    if (nEraseCount == (nMaxEraseTimes - 1))
+                    {
+                        goto EraseEnd;
+                    }
+                }
             }
         }
-    }
-    else if (eEmemType == EMEM_MAIN) // 48KB (32+8+8)
-    {
-        DBG("Erase main block\n");
-
-        for (i = 0; i < 3; i ++)
+        else if (eEmemType == EMEM_MAIN) // 48KB (32+8+8)
         {
+            DBG("Erase main block %d times\n", nEraseCount);
+
+            for (i = 0; i < 3; i ++)
+            {
+                // Clear pce
+                RegSetLByteValue(0x1618, 0x80);
+                mdelay(10);
+ 
+                if (i == 0)
+                {
+                    RegSet16BitValue(0x1600, 0x0000);
+                }
+                else if (i == 1)
+                {
+                    RegSet16BitValue(0x1600, 0x8000);
+                }
+                else if (i == 2)
+                {
+                    RegSet16BitValue(0x1600, 0xA000);
+                }
+
+                // Sector erase
+                RegSet16BitValue(0x160E, (RegGet16BitValue(0x160E) | BIT2));
+
+                DBG("Wait erase done flag\n");
+
+                nRegData = 0;
+                nTimeOut = 0;
+
+                while (1) // Wait erase done flag
+                {
+                    nRegData = RegGet16BitValue(0x1610); // Memory status
+                    nRegData = nRegData & BIT1;
+            
+                    DBG("Wait erase done flag nRegData = 0x%x\n", nRegData);
+
+                    if (nRegData == BIT1)
+                    {
+                        break;		
+                    }
+                    mdelay(50);
+
+                    if ((nTimeOut ++) > 30)
+                    {
+                        DBG("Erase main block %d times failed. Timeout.\n", nEraseCount);
+
+                        if (nEraseCount == (nMaxEraseTimes - 1))
+                        {
+                            goto EraseEnd;
+                        }
+                    }
+                }
+            }   
+        }
+        else if (eEmemType == EMEM_INFO) // 512Byte
+        {
+            DBG("Erase info block %d times\n", nEraseCount);
+
             // Clear pce
             RegSetLByteValue(0x1618, 0x80);
             mdelay(10);
 
-            if (i == 0)
-            {
-                RegSet16BitValue(0x1600, 0x0000);
-            }
-            else if (i == 1)
-            {
-                RegSet16BitValue(0x1600, 0x8000);
-            }
-            else if (i == 2)
-            {
-                RegSet16BitValue(0x1600, 0xA000);
-            }
-
+            RegSet16BitValue(0x1600, 0xC000);
+        
             // Sector erase
             RegSet16BitValue(0x160E, (RegGet16BitValue(0x160E) | BIT2));
 
             DBG("Wait erase done flag\n");
 
-            nRegData = 0;
-            nTimeOut = 0;
-            
             while (1) // Wait erase done flag
             {
                 nRegData = RegGet16BitValue(0x1610); // Memory status
@@ -437,50 +607,19 @@ static void _DrvFwCtrlMsg22xxEraseEmem(EmemType_e eEmemType)
 
                 if ((nTimeOut ++) > 30)
                 {
-                    DBG("Erase main block failed. Timeout.\n");
+                    DBG("Erase info block %d times failed. Timeout.\n", nEraseCount);
 
-                    goto EraseEnd;
+                    if (nEraseCount == (nMaxEraseTimes - 1))
+                    {
+                        goto EraseEnd;
+                    }
                 }
-            }
-        }   
-    }
-    else if (eEmemType == EMEM_INFO) // 512Byte
-    {
-        DBG("Erase info block\n");
-
-        // Clear pce
-        RegSetLByteValue(0x1618, 0x80);
-        mdelay(10);
-
-        RegSet16BitValue(0x1600, 0xC000);
-        
-        // Sector erase
-        RegSet16BitValue(0x160E, (RegGet16BitValue(0x160E) | BIT2));
-
-        DBG("Wait erase done flag\n");
-
-        while (1) // Wait erase done flag
-        {
-            nRegData = RegGet16BitValue(0x1610); // Memory status
-            nRegData = nRegData & BIT1;
-        
-            DBG("Wait erase done flag nRegData = 0x%x\n", nRegData);
-
-            if (nRegData == BIT1)
-            {
-                break;		
-            }
-            mdelay(50);
-
-            if ((nTimeOut ++) > 30)
-            {
-                DBG("Erase info block failed. Timeout.\n");
-
-                goto EraseEnd;
             }
         }
     }
     
+    _DrvFwCtrlMsg22xxRestoreVoltage();
+
     EraseEnd:
     
     DBG("Erase end\n");
@@ -498,10 +637,18 @@ static void _DrvFwCtrlMsg22xxProgramEmem(EmemType_e eEmemType)
     u16 nRegData = 0;
 #if defined(CONFIG_TOUCH_DRIVER_RUN_ON_QCOM_PLATFORM) || defined(CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM)
     u8 szDbBusTxData[128] = {0};
+#ifdef CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
+    u32 nSizePerWrite = 1;
+#else 
     u32 nSizePerWrite = 125;
+#endif //CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
 #elif defined(CONFIG_TOUCH_DRIVER_RUN_ON_SPRD_PLATFORM)
     u8 szDbBusTxData[1024] = {0};
+#ifdef CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
+    u32 nSizePerWrite = 1;
+#else
     u32 nSizePerWrite = 1021;
+#endif //CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
 #endif
 
     DBG("*** %s() eEmemType = %d ***\n", __func__, eEmemType);
@@ -596,8 +743,7 @@ static void _DrvFwCtrlMsg22xxProgramEmem(EmemType_e eEmemType)
 
     IicWriteData(SLAVE_I2C_ID_DBBUS, &szDbBusTxData[0], 1);    
 
-    nRegData = RegGet16BitValue(0x160C); 
-    RegSet16BitValue(0x160C, nRegData & (~0x01));      
+    RegSet16BitValue(0x160C, RegGet16BitValue(0x160C) & (~0x01)); // Clear burst mode
 
     DBG("Wait write done flag\n");
 
@@ -631,7 +777,7 @@ static void _DrvFwCtrlMsg22xxProgramEmem(EmemType_e eEmemType)
     DbBusNotStopMCU();
     DbBusExitSerialDebugMode();
 }
-#endif
+
 static u32 _DrvFwCtrlMsg22xxGetFirmwareCrcByHardware(EmemType_e eEmemType) 
 {
     u16 nCrcDown = 0;
@@ -644,6 +790,23 @@ static u32 _DrvFwCtrlMsg22xxGetFirmwareCrcByHardware(EmemType_e eEmemType)
     DbBusIICUseBus();
     DbBusIICReshape();
     mdelay(100);
+
+#ifdef CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
+    // Stop MCU
+    RegSetLByteValue(0x0FE6, 0x01); 
+    
+    // Change MCU clock deglich mux source
+    RegSet16BitValue(0x1E54, (RegGet16BitValue(0x1E54) | BIT0)); 
+
+    // Change PIU clock to 48 MHz
+    RegSet16BitValue(0x1E22, (RegGet16BitValue(0x1E22) | BIT14)); 
+
+    // Set MCU clock setting
+    RegSet16BitValue(0x1E22, (RegGet16BitValue(0x1E22) & (~(BIT3 | BIT2)))); 
+
+    // Set DB bus clock setting
+    RegSet16BitValue(0x1E24, (RegGet16BitValue(0x1E24) & (~(BIT3 | BIT2)))); 
+#endif //CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
 
     // RIU password
     RegSet16BitValue(0x161A, 0xABBA);      
@@ -699,7 +862,11 @@ static void _DrvFwCtrlMsg22xxConvertFwDataTwoDimenToOneDimen(u8 szTwoDimenFwData
     u32 i, j;
 
     DBG("*** %s() ***\n", __func__);
-
+    if(0)
+	{
+		_DrvFwCtrlMsg22xxEraseEmem(EMEM_INFO);
+		_DrvFwCtrlMsg22xxProgramEmem(EMEM_INFO);
+	}
     for (i = 0; i < (MSG22XX_FIRMWARE_MAIN_BLOCK_SIZE+1); i ++)
     {
         if (i < MSG22XX_FIRMWARE_MAIN_BLOCK_SIZE) // i < 48
@@ -719,6 +886,17 @@ static void _DrvFwCtrlMsg22xxConvertFwDataTwoDimenToOneDimen(u8 szTwoDimenFwData
     }
 }
 
+#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL 
+static u32 _DrvFwCtrlPointDistance(u16 nX, u16 nY, u16 nPrevX, u16 nPrevY)
+{ 
+    u32 nRetVal = 0;
+	
+    nRetVal = (((nX-nPrevX)*(nX-nPrevX))+((nY-nPrevY)*(nY-nPrevY)));
+    
+    return nRetVal;
+}
+#endif //CONFIG_ENABLE_TYPE_B_PROTOCOL
+
 static s32 _DrvFwCtrlParsePacket(u8 *pPacket, u16 nLength, TouchInfo_t *pInfo)
 {
     u8 nCheckSum = 0;
@@ -729,9 +907,25 @@ static s32 _DrvFwCtrlParsePacket(u8 *pPacket, u16 nLength, TouchInfo_t *pInfo)
     u32 nTempX;
     u32 nTempY;
 #endif
+#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL
+    static u8 nPrevTouchNum = 0; 
+    static u16 szPrevX[MAX_TOUCH_NUM] = {0xFFFF, 0xFFFF};
+    static u16 szPrevY[MAX_TOUCH_NUM] = {0xFFFF, 0xFFFF};
+    static u8  szPrevPress[MAX_TOUCH_NUM] = {0};
+    u32 i = 0;
+    u16 szX[MAX_TOUCH_NUM] = {0};
+    u16 szY[MAX_TOUCH_NUM] = {0};
+    u16 nTemp = 0;
+    u8  nChangePoints = 0;
+#endif //CONFIG_ENABLE_TYPE_B_PROTOCOL
     u8 nCheckSumIndex = nLength-1; //Set default checksum index for demo mode
 
     DBG("*** %s() ***\n", __func__);
+
+#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL
+    _gCurrPress[0] = 0;
+    _gCurrPress[1] = 0;
+#endif //CONFIG_ENABLE_TYPE_B_PROTOCOL
 
 #ifdef CONFIG_ENABLE_COUNT_REPORT_RATE
     if (g_IsEnableReportRate == 1)
@@ -1736,10 +1930,16 @@ static s32 _DrvFwCtrlParsePacket(u8 *pPacket, u16 nLength, TouchInfo_t *pInfo)
                     if (pPacket[5] == 0x80) // close to
                     {
                         g_FaceClosingTp = 1;
+
+                        input_report_abs(g_ProximityInputDevice, ABS_DISTANCE, 0);
+                        input_sync(g_ProximityInputDevice);
                     }
                     else if (pPacket[5] == 0x40) // far away
                     {
                         g_FaceClosingTp = 0;
+
+                        input_report_abs(g_ProximityInputDevice, ABS_DISTANCE, 1);
+                        input_sync(g_ProximityInputDevice);
                     }
 
                     DBG("g_FaceClosingTp = %d\n", g_FaceClosingTp);
@@ -1785,6 +1985,7 @@ static s32 _DrvFwCtrlParsePacket(u8 *pPacket, u16 nLength, TouchInfo_t *pInfo)
                 pInfo->nTouchKeyCode = pPacket[5];
                 pInfo->nTouchKeyMode = 1;
 
+#ifdef CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM
 #ifdef CONFIG_ENABLE_REPORT_KEY_WITH_COORDINATE
                 pInfo->nFingerNum = 1;
                 pInfo->nTouchKeyCode = 0;
@@ -1817,6 +2018,7 @@ static s32 _DrvFwCtrlParsePacket(u8 *pPacket, u16 nLength, TouchInfo_t *pInfo)
                     return -1;
                 }
 #endif //CONFIG_ENABLE_REPORT_KEY_WITH_COORDINATE
+#endif //CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM
             }
             else
             {   /* key up or touch up */
@@ -1825,6 +2027,10 @@ static s32 _DrvFwCtrlParsePacket(u8 *pPacket, u16 nLength, TouchInfo_t *pInfo)
                 pInfo->nTouchKeyCode = 0;
                 pInfo->nTouchKeyMode = 0;    
             }
+
+#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL
+            _gPrevTouchStatus = 0;
+#endif //CONFIG_ENABLE_TYPE_B_PROTOCOL 
         }
         else
         {
@@ -1850,6 +2056,11 @@ static s32 _DrvFwCtrlParsePacket(u8 *pPacket, u16 nLength, TouchInfo_t *pInfo)
                 pInfo->tPoint[0].nY = (nY * TOUCH_SCREEN_Y_MAX) / TPD_HEIGHT;
                 DBG("[%s]: [x,y]=[%d,%d]\n", __func__, nX, nY);
                 DBG("[%s]: point[x,y]=[%d,%d]\n", __func__, pInfo->tPoint[0].nX, pInfo->tPoint[0].nY);
+
+#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL
+                _gCurrPress[0] = 1;
+                _gCurrPress[1] = 0;
+#endif //CONFIG_ENABLE_TYPE_B_PROTOCOL
             }
             else
             {   /* two touch points */
@@ -1877,7 +2088,84 @@ static s32 _DrvFwCtrlParsePacket(u8 *pPacket, u16 nLength, TouchInfo_t *pInfo)
                 pInfo->tPoint[1].nX = (nX2 * TOUCH_SCREEN_X_MAX) / TPD_WIDTH; 
                 pInfo->tPoint[1].nY = (nY2 * TOUCH_SCREEN_Y_MAX) / TPD_HEIGHT;
                 DBG("[%s]: point2[x,y]=[%d,%d]\n", __func__, pInfo->tPoint[1].nX, pInfo->tPoint[1].nY);
+
+#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL
+                _gCurrPress[0] = 1;
+                _gCurrPress[1] = 1;
+#endif //CONFIG_ENABLE_TYPE_B_PROTOCOL
             }
+
+#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL
+            if (_gPrevTouchStatus == 1)
+            {
+                for (i = 0; i < MAX_TOUCH_NUM; i ++)
+                {
+                    szX[i] = pInfo->tPoint[i].nX;
+                    szY[i] = pInfo->tPoint[i].nY;
+                }
+			
+                if (/*(pInfo->nFingerNum == 1)&&*/(nPrevTouchNum == 2))
+                {
+                    if (_DrvFwCtrlPointDistance(szX[0], szY[0], szPrevX[0], szPrevY[0]) > _DrvFwCtrlPointDistance(szX[0], szY[0], szPrevX[1], szPrevY[1]))
+                    {
+                        nChangePoints = 1;
+                    }
+                }
+                else if ((pInfo->nFingerNum == 2) && (nPrevTouchNum == 1))
+                {
+                    if (szPrevPress[0] == 1)
+                    {
+                        if(_DrvFwCtrlPointDistance(szX[0], szY[0], szPrevX[0] ,szPrevY[0]) > _DrvFwCtrlPointDistance(szX[1], szY[1], szPrevX[0], szPrevY[0]))
+                        {
+                            nChangePoints = 1;
+                        }
+                    }
+                    else
+                    {
+                        if (_DrvFwCtrlPointDistance(szX[0], szY[0], szPrevX[1], szPrevY[1]) < _DrvFwCtrlPointDistance(szX[1], szY[1], szPrevX[1], szPrevY[1]))
+                        {
+                            nChangePoints = 1;
+                        }
+                    }
+                }
+                else if ((pInfo->nFingerNum == 1) && (nPrevTouchNum == 1))
+                {
+                    if (_gCurrPress[0] != szPrevPress[0])
+                    {
+                        nChangePoints = 1;
+                    }
+                }
+//                else if ((pInfo->nFingerNum == 2) && (nPrevTouchNum == 2))
+//                {
+//                }
+
+                if (nChangePoints == 1)
+                {
+                    nTemp = _gCurrPress[0];
+                    _gCurrPress[0] = _gCurrPress[1];
+                    _gCurrPress[1] = nTemp;
+
+                    nTemp = pInfo->tPoint[0].nX;
+                    pInfo->tPoint[0].nX = pInfo->tPoint[1].nX;
+                    pInfo->tPoint[1].nX = nTemp;
+
+                    nTemp = pInfo->tPoint[0].nY;
+                    pInfo->tPoint[0].nY = pInfo->tPoint[1].nY;
+                    pInfo->tPoint[1].nY = nTemp;
+                }
+            }
+
+            // Save current status
+            for (i = 0; i < MAX_TOUCH_NUM; i ++)
+            {
+                szPrevPress[i] = _gCurrPress[i];
+                szPrevX[i] = pInfo->tPoint[i].nX;
+                szPrevY[i] = pInfo->tPoint[i].nY;
+            }
+            nPrevTouchNum = pInfo->nFingerNum;
+
+            _gPrevTouchStatus = 1;
+#endif //CONFIG_ENABLE_TYPE_B_PROTOCOL
         }
     }
     else if (pPacket[nCheckSumIndex] == nCheckSum && pPacket[0] == 0x62)
@@ -1930,6 +2218,7 @@ static s32 _DrvFwCtrlParsePacket(u8 *pPacket, u16 nLength, TouchInfo_t *pInfo)
                 pInfo->nTouchKeyCode = pPacket[8];
                 pInfo->nTouchKeyMode = 1;
 
+#ifdef CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM
 #ifdef CONFIG_ENABLE_REPORT_KEY_WITH_COORDINATE
                 pInfo->nFingerNum = 1;
                 pInfo->nTouchKeyCode = 0;
@@ -1962,6 +2251,7 @@ static s32 _DrvFwCtrlParsePacket(u8 *pPacket, u16 nLength, TouchInfo_t *pInfo)
                     return -1;
                 }
 #endif //CONFIG_ENABLE_REPORT_KEY_WITH_COORDINATE
+#endif //CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM
             }
             else
             {   /* key up or touch up */
@@ -1970,6 +2260,10 @@ static s32 _DrvFwCtrlParsePacket(u8 *pPacket, u16 nLength, TouchInfo_t *pInfo)
                 pInfo->nTouchKeyCode = 0;
                 pInfo->nTouchKeyMode = 0;    
             }
+
+#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL
+            _gPrevTouchStatus = 0;
+#endif //CONFIG_ENABLE_TYPE_B_PROTOCOL 
         }
         else
         {
@@ -1995,6 +2289,11 @@ static s32 _DrvFwCtrlParsePacket(u8 *pPacket, u16 nLength, TouchInfo_t *pInfo)
                 pInfo->tPoint[0].nY = (nY * TOUCH_SCREEN_Y_MAX) / TPD_HEIGHT;
                 DBG("[%s]: [x,y]=[%d,%d]\n", __func__, nX, nY);
                 DBG("[%s]: point[x,y]=[%d,%d]\n", __func__, pInfo->tPoint[0].nX, pInfo->tPoint[0].nY);
+
+#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL
+                _gCurrPress[0] = 1;
+                _gCurrPress[1] = 0;
+#endif //CONFIG_ENABLE_TYPE_B_PROTOCOL
             }
             else
             {   /* two touch points */
@@ -2022,7 +2321,84 @@ static s32 _DrvFwCtrlParsePacket(u8 *pPacket, u16 nLength, TouchInfo_t *pInfo)
                 pInfo->tPoint[1].nX = (nX2 * TOUCH_SCREEN_X_MAX) / TPD_WIDTH; 
                 pInfo->tPoint[1].nY = (nY2 * TOUCH_SCREEN_Y_MAX) / TPD_HEIGHT;
                 DBG("[%s]: point2[x,y]=[%d,%d]\n", __func__, pInfo->tPoint[1].nX, pInfo->tPoint[1].nY);
+
+#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL
+                _gCurrPress[0] = 1;
+                _gCurrPress[1] = 1;
+#endif //CONFIG_ENABLE_TYPE_B_PROTOCOL
             }
+
+#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL
+            if (_gPrevTouchStatus == 1)
+            {
+                for (i = 0; i < MAX_TOUCH_NUM; i ++)
+                {
+                    szX[i] = pInfo->tPoint[i].nX;
+                    szY[i] = pInfo->tPoint[i].nY;
+                }
+			
+                if (/*(pInfo->nFingerNum == 1)&&*/(nPrevTouchNum == 2))
+                {
+                    if (_DrvFwCtrlPointDistance(szX[0], szY[0], szPrevX[0], szPrevY[0]) > _DrvFwCtrlPointDistance(szX[0], szY[0], szPrevX[1], szPrevY[1]))
+                    {
+                        nChangePoints = 1;
+                    }
+                }
+                else if ((pInfo->nFingerNum == 2) && (nPrevTouchNum == 1))
+                {
+                    if (szPrevPress[0] == 1)
+                    {
+                        if(_DrvFwCtrlPointDistance(szX[0], szY[0], szPrevX[0] ,szPrevY[0]) > _DrvFwCtrlPointDistance(szX[1], szY[1], szPrevX[0], szPrevY[0]))
+                        {
+                            nChangePoints = 1;
+                        }
+                    }
+                    else
+                    {
+                        if (_DrvFwCtrlPointDistance(szX[0], szY[0], szPrevX[1], szPrevY[1]) < _DrvFwCtrlPointDistance(szX[1], szY[1], szPrevX[1], szPrevY[1]))
+                        {
+                            nChangePoints = 1;
+                        }
+                    }
+                }
+                else if ((pInfo->nFingerNum == 1) && (nPrevTouchNum == 1))
+                {
+                    if (_gCurrPress[0] != szPrevPress[0])
+                    {
+                        nChangePoints = 1;
+                    }
+                }
+//                else if ((pInfo->nFingerNum == 2) && (nPrevTouchNum == 2))
+//                {
+//                }
+
+                if (nChangePoints == 1)
+                {
+                    nTemp = _gCurrPress[0];
+                    _gCurrPress[0] = _gCurrPress[1];
+                    _gCurrPress[1] = nTemp;
+
+                    nTemp = pInfo->tPoint[0].nX;
+                    pInfo->tPoint[0].nX = pInfo->tPoint[1].nX;
+                    pInfo->tPoint[1].nX = nTemp;
+
+                    nTemp = pInfo->tPoint[0].nY;
+                    pInfo->tPoint[0].nY = pInfo->tPoint[1].nY;
+                    pInfo->tPoint[1].nY = nTemp;
+                }
+            }
+
+            // Save current status
+            for (i = 0; i < MAX_TOUCH_NUM; i ++)
+            {
+                szPrevPress[i] = _gCurrPress[i];
+                szPrevX[i] = pInfo->tPoint[i].nX;
+                szPrevY[i] = pInfo->tPoint[i].nY;
+            }
+            nPrevTouchNum = pInfo->nFingerNum;
+
+            _gPrevTouchStatus = 1;
+#endif //CONFIG_ENABLE_TYPE_B_PROTOCOL
 
             // Notify android application to retrieve log data mode packet from device driver by sysfs.   
             if (g_TouchKObj != NULL)
@@ -2199,8 +2575,25 @@ static u16 _DrvFwCtrlMsg22xxGetSwId(EmemType_e eEmemType)
     DbBusIICReshape();
     mdelay(100);
 
-    // Stop mcu
+#ifdef CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
+    // Stop MCU
     RegSetLByteValue(0x0FE6, 0x01); 
+    
+    // Change MCU clock deglich mux source
+    RegSet16BitValue(0x1E54, (RegGet16BitValue(0x1E54) | BIT0)); 
+
+    // Change PIU clock to 48 MHz
+    RegSet16BitValue(0x1E22, (RegGet16BitValue(0x1E22) | BIT14)); 
+
+    // Set MCU clock setting
+    RegSet16BitValue(0x1E22, (RegGet16BitValue(0x1E22) & (~(BIT3 | BIT2)))); 
+
+    // Set DB bus clock setting
+    RegSet16BitValue(0x1E24, (RegGet16BitValue(0x1E24) & (~(BIT3 | BIT2)))); 
+#else
+    // Stop MCU
+    RegSetLByteValue(0x0FE6, 0x01); 
+#endif //CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
 
     // Stop watchdog
     RegSet16BitValue(0x3C60, 0xAA55);
@@ -2286,8 +2679,25 @@ static u32 _DrvFwCtrlMsg22xxRetrieveFirmwareCrcFromEFlash(EmemType_e eEmemType)
     DbBusIICReshape();
     mdelay(100);
 
-    // Stop mcu
+#ifdef CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
+    // Stop MCU
     RegSetLByteValue(0x0FE6, 0x01); 
+    
+    // Change MCU clock deglich mux source
+    RegSet16BitValue(0x1E54, (RegGet16BitValue(0x1E54) | BIT0)); 
+
+    // Change PIU clock to 48 MHz
+    RegSet16BitValue(0x1E22, (RegGet16BitValue(0x1E22) | BIT14)); 
+
+    // Set MCU clock setting
+    RegSet16BitValue(0x1E22, (RegGet16BitValue(0x1E22) & (~(BIT3 | BIT2)))); 
+
+    // Set DB bus clock setting
+    RegSet16BitValue(0x1E24, (RegGet16BitValue(0x1E24) & (~(BIT3 | BIT2)))); 
+#else
+    // Stop MCU
+    RegSetLByteValue(0x0FE6, 0x01); 
+#endif //CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
 
     // Stop watchdog
     RegSet16BitValue(0x3C60, 0xAA55);
@@ -2519,7 +2929,7 @@ void _DrvFwCtrlMsg22xxCheckFirmwareUpdateBySwId(void)
     if (nCrcMainA == nCrcMainB && nCrcInfoA == nCrcInfoB) // Case 1. Main Block:OK, Info Block:OK
     {
         eSwId = _DrvFwCtrlMsg22xxGetSwId(EMEM_MAIN);
-    		
+    	DBG("eSwId = %d\n",eSwId);	
         if (eSwId == MSG22XX_SW_ID_XXXX)
         {
             nUpdateBinMajor = msg22xx_xxxx_update_bin[0xBFF5]<<8 | msg22xx_xxxx_update_bin[0xBFF4];
@@ -2543,12 +2953,7 @@ void _DrvFwCtrlMsg22xxCheckFirmwareUpdateBySwId(void)
 
         DBG("eSwId=0x%x, nMajor=%d, nMinor=%d, nUpdateBinMajor=%d, nUpdateBinMinor=%d\n", eSwId, nMajor, nMinor, nUpdateBinMajor, nUpdateBinMinor);
 
-	//modify by mike.li for force upgrade fw in MINI SW[2015.09.10].
-	#ifdef MINI_MODE_TO_CTP
-	if (1)
-	#else
-	if (nUpdateBinMinor > nMinor)
-	#endif
+        if (nUpdateBinMinor > nMinor)
         {
             if (eSwId == MSG22XX_SW_ID_XXXX)
             {
@@ -2603,7 +3008,7 @@ void _DrvFwCtrlMsg22xxCheckFirmwareUpdateBySwId(void)
         }
         else
         {
-            DBG("The update bin version is older than or equal to the current firmware version on e-flash.\n");
+            DBG("The 22xx update bin version is older than or equal to the current firmware version on e-flash.\n");
             DBG("Go to normal boot up process.\n");
         }
     }
@@ -2735,7 +3140,7 @@ void _DrvFwCtrlMsg22xxCheckFirmwareUpdateBySwId(void)
 //-------------------------End of SW ID for MSG22XX----------------------------//
 
 //-------------------------Start of SW ID for MSG21XXA----------------------------//
-#if 0	//del by mike.li for compile err.[2015.07.07]
+
 static u32 _DrvFwCtrlMsg21xxaCalculateMainCrcFromEFlash(void) 
 {
     u32 nRetVal = 0; 
@@ -3067,7 +3472,6 @@ static s32 _DrvFwCtrlMsg21xxaUpdateFirmwareBySwId(u8 szFwData[][1024], EmemType_
 
     DrvPlatformLyrTouchDeviceResetHw();
     
-
     if ((eEmemType == EMEM_ALL) || (eEmemType == EMEM_MAIN))
     {
         if (nCrcMainTp != nCrcMain)
@@ -3214,7 +3618,7 @@ void _DrvFwCtrlMsg21xxaCheckFirmwareUpdateBySwId(void)
         }
         else
         {
-            DBG("The update bin version is older than or equal to the current firmware version on e-flash.\n");
+            DBG("The 21xx update bin version is older than or equal to the current firmware version on e-flash.\n");
             DBG("Go to normal boot up process.\n");
         }
     }
@@ -3273,7 +3677,7 @@ void _DrvFwCtrlMsg21xxaCheckFirmwareUpdateBySwId(void)
     
     DrvPlatformLyrEnableFingerTouchReport();
 }
-#endif
+
 //-------------------------End of SW ID for MSG21XXA----------------------------//
 
 static void _DrvFwCtrlUpdateFirmwareBySwIdDoWork(struct work_struct *pWork)
@@ -3284,7 +3688,7 @@ static void _DrvFwCtrlUpdateFirmwareBySwIdDoWork(struct work_struct *pWork)
 
     if (g_ChipType == CHIP_TYPE_MSG21XXA)   
     {
-        //nRetVal = _DrvFwCtrlMsg21xxaUpdateFirmwareBySwId(g_FwData, EMEM_MAIN);
+        nRetVal = _DrvFwCtrlMsg21xxaUpdateFirmwareBySwId(g_FwData, EMEM_MAIN);
     }
     else if (g_ChipType == CHIP_TYPE_MSG22XX)    
     {
@@ -3355,7 +3759,7 @@ static void _DrvFwCtrlUpdateFirmwareBySwIdDoWork(struct work_struct *pWork)
 #endif //CONFIG_UPDATE_FIRMWARE_BY_SW_ID
 
 //------------------------------------------------------------------------------//
-#if 0	//
+
 static void _DrvFwCtrlReadInfoC33(void)
 {
     u8 szDbBusTxData[5] = {0};
@@ -3821,7 +4225,6 @@ static s32 _DrvFwCtrlUpdateFirmwareC33(u8 szFwData[][1024], EmemType_e eEmemType
 
     DrvPlatformLyrTouchDeviceResetHw();
 
-
     if ((eEmemType == EMEM_ALL) || (eEmemType == EMEM_MAIN))
     {
         if ((nCrcMainTp != nCrcMain) || (nCrcInfoTp != nCrcInfo))
@@ -3836,22 +4239,32 @@ static s32 _DrvFwCtrlUpdateFirmwareC33(u8 szFwData[][1024], EmemType_e eEmemType
 
     return 0;
 }
-#endif
 
 static s32 _DrvFwCtrlMsg22xxUpdateFirmware(u8 szFwData[][1024], EmemType_e eEmemType)
 {
-    u32 i, index;
+    u32 i = 0, index = 0;
+    u32 nEraseCount = 0;
+    u32 nMaxEraseTimes = 0;
     u32 nCrcMain = 0, nCrcMainTp = 0;
     u32 nCrcInfo = 0, nCrcInfoTp = 0;
     u32 nRemainSize, nBlockSize, nSize;
     u32 nTimeOut = 0;
     u16 nRegData = 0;
+    u16 nTrimByte1 = 0;
 #if defined(CONFIG_TOUCH_DRIVER_RUN_ON_QCOM_PLATFORM) || defined(CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM)
     u8 szDbBusTxData[128] = {0};
+#ifdef CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
+    u32 nSizePerWrite = 1;
+#else 
     u32 nSizePerWrite = 125;
+#endif //CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
 #elif defined(CONFIG_TOUCH_DRIVER_RUN_ON_SPRD_PLATFORM)
     u8 szDbBusTxData[1024] = {0};
+#ifdef CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
+    u32 nSizePerWrite = 1;
+#else
     u32 nSizePerWrite = 1021;
+#endif //CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
 #endif
 
     DBG("*** %s() ***\n", __func__);
@@ -3876,6 +4289,10 @@ static s32 _DrvFwCtrlMsg22xxUpdateFirmware(u8 szFwData[][1024], EmemType_e eEmem
     // Stop mcu
     RegSet16BitValue(0x0FE6, 0x0001);
 
+    nTrimByte1 = _DrvFwCtrlMsg22xxGetTrimByte1();
+    
+    _DrvFwCtrlMsg22xxChangeVoltage();
+
     // Disable watchdog
     RegSetLByteValue(0x3C60, 0x55);
     RegSetLByteValue(0x3C61, 0xAA);
@@ -3884,71 +4301,125 @@ static s32 _DrvFwCtrlMsg22xxUpdateFirmware(u8 szFwData[][1024], EmemType_e eEmem
     RegSetLByteValue(0x161A, 0xBA);
     RegSetLByteValue(0x161B, 0xAB);
 
-    if (eEmemType == EMEM_ALL) // 48KB + 512Byte
+    if (nTrimByte1 == 0xCA)
     {
-        DBG("Erase all block\n");
-
-        // Clear pce
-        RegSetLByteValue(0x1618, 0x80);
-        mdelay(100);
-
-        // Chip erase
-        RegSet16BitValue(0x160E, BIT3);
-
-        DBG("Wait erase done flag\n");
-
-        while (1) // Wait erase done flag
+        nMaxEraseTimes = MAX_ERASE_EFLASH_TIMES;
+    }
+    else
+    {
+        nMaxEraseTimes = 1;	
+    }
+    
+    for (nEraseCount = 0; nEraseCount < nMaxEraseTimes; nEraseCount ++)
+    {
+        if (eEmemType == EMEM_ALL) // 48KB + 512Byte
         {
-            nRegData = RegGet16BitValue(0x1610); // Memory status
-            nRegData = nRegData & BIT1;
+            DBG("Erase all block %d times\n", nEraseCount);
+
+            // Clear pce
+            RegSetLByteValue(0x1618, 0x80);
+            mdelay(100);
+
+            // Chip erase
+            RegSet16BitValue(0x160E, BIT3);
+
+            DBG("Wait erase done flag\n");
+
+            while (1) // Wait erase done flag
+            {
+                nRegData = RegGet16BitValue(0x1610); // Memory status
+                nRegData = nRegData & BIT1;
             
-            DBG("Wait erase done flag nRegData = 0x%x\n", nRegData);
+                DBG("Wait erase done flag nRegData = 0x%x\n", nRegData);
 
-            if (nRegData == BIT1)
-            {
-                break;		
-            }
+                if (nRegData == BIT1)
+                {
+                    break;		
+                }
 
-            mdelay(50);
+                mdelay(50);
 
-            if ((nTimeOut ++) > 30)
-            {
-                DBG("Erase all block failed. Timeout.\n");
+                if ((nTimeOut ++) > 30)
+                {
+                    DBG("Erase all block %d times failed. Timeout.\n", nEraseCount);
 
-                goto UpdateEnd;
+                    if (nEraseCount == (nMaxEraseTimes - 1))
+                    {
+                        goto UpdateEnd;
+                    }
+                }
             }
         }
-    }
-    else if (eEmemType == EMEM_MAIN) // 48KB (32+8+8)
-    {
-        DBG("Erase main block\n");
-
-        for (i = 0; i < 3; i ++)
+        else if (eEmemType == EMEM_MAIN) // 48KB (32+8+8)
         {
+            DBG("Erase main block %d times\n", nEraseCount);
+
+            for (i = 0; i < 3; i ++)
+            {
+                // Clear pce
+                RegSetLByteValue(0x1618, 0x80);
+                mdelay(10);
+ 
+                if (i == 0)
+                {
+                    RegSet16BitValue(0x1600, 0x0000);
+                }
+                else if (i == 1)
+                {
+                    RegSet16BitValue(0x1600, 0x8000);
+                }
+                else if (i == 2)
+                {
+                    RegSet16BitValue(0x1600, 0xA000);
+                }
+
+                // Sector erase
+                RegSet16BitValue(0x160E, (RegGet16BitValue(0x160E) | BIT2));
+
+                DBG("Wait erase done flag\n");
+
+                nRegData = 0;
+                nTimeOut = 0;
+
+                while (1) // Wait erase done flag
+                {
+                    nRegData = RegGet16BitValue(0x1610); // Memory status
+                    nRegData = nRegData & BIT1;
+            
+                    DBG("Wait erase done flag nRegData = 0x%x\n", nRegData);
+
+                    if (nRegData == BIT1)
+                    {
+                        break;		
+                    }
+                    mdelay(50);
+
+                    if ((nTimeOut ++) > 30)
+                    {
+                        DBG("Erase main block %d times failed. Timeout.\n", nEraseCount);
+
+                        if (nEraseCount == (nMaxEraseTimes - 1))
+                        {
+                            goto UpdateEnd;
+                        }
+                    }
+                }
+            }   
+        }
+        else if (eEmemType == EMEM_INFO) // 512Byte
+        {
+            DBG("Erase info block %d times\n", nEraseCount);
+
             // Clear pce
             RegSetLByteValue(0x1618, 0x80);
             mdelay(10);
 
-            if (i == 0)
-            {
-                RegSet16BitValue(0x1600, 0x0000);
-            }
-            else if (i == 1)
-            {
-                RegSet16BitValue(0x1600, 0x8000);
-            }
-            else if (i == 2)
-            {
-                RegSet16BitValue(0x1600, 0xA000);
-            }
-
+            RegSet16BitValue(0x1600, 0xC000);
+        
             // Sector erase
             RegSet16BitValue(0x160E, (RegGet16BitValue(0x160E) | BIT2));
 
             DBG("Wait erase done flag\n");
-
-            nRegData = 0;
-            nTimeOut = 0;
 
             while (1) // Wait erase done flag
             {
@@ -3965,49 +4436,18 @@ static s32 _DrvFwCtrlMsg22xxUpdateFirmware(u8 szFwData[][1024], EmemType_e eEmem
 
                 if ((nTimeOut ++) > 30)
                 {
-                    DBG("Erase main block failed. Timeout.\n");
+                    DBG("Erase info block %d times failed. Timeout.\n", nEraseCount);
 
-                    goto UpdateEnd;
+                    if (nEraseCount == (nMaxEraseTimes - 1))
+                    {
+                        goto UpdateEnd;
+                    }
                 }
-            }
-        }   
-    }
-    else if (eEmemType == EMEM_INFO) // 512Byte
-    {
-        DBG("Erase info block\n");
-
-        // Clear pce
-        RegSetLByteValue(0x1618, 0x80);
-        mdelay(10);
-
-        RegSet16BitValue(0x1600, 0xC000);
-        
-        // Sector erase
-        RegSet16BitValue(0x160E, (RegGet16BitValue(0x160E) | BIT2));
-
-        DBG("Wait erase done flag\n");
-
-        while (1) // Wait erase done flag
-        {
-            nRegData = RegGet16BitValue(0x1610); // Memory status
-            nRegData = nRegData & BIT1;
-            
-            DBG("Wait erase done flag nRegData = 0x%x\n", nRegData);
-
-            if (nRegData == BIT1)
-            {
-                break;		
-            }
-            mdelay(50);
-
-            if ((nTimeOut ++) > 30)
-            {
-                DBG("Erase info block failed. Timeout.\n");
-
-                goto UpdateEnd;
             }
         }
     }
+
+    _DrvFwCtrlMsg22xxRestoreVoltage();
     
     DBG("Erase end\n");
     
@@ -4077,9 +4517,8 @@ static s32 _DrvFwCtrlMsg22xxUpdateFirmware(u8 szFwData[][1024], EmemType_e eEmem
 		
         IicWriteData(SLAVE_I2C_ID_DBBUS, &szDbBusTxData[0], 1);    
 		
-        nRegData = RegGet16BitValue(0x160C); 
-        RegSet16BitValue(0x160C, nRegData & (~0x01));      
-		
+        RegSet16BitValue(0x160C, RegGet16BitValue(0x160C) & (~0x01)); // Clear burst mode
+
         DBG("Wait main block write done flag\n");
 		
         nRegData = 0;
@@ -4169,8 +4608,7 @@ static s32 _DrvFwCtrlMsg22xxUpdateFirmware(u8 szFwData[][1024], EmemType_e eEmem
 
         IicWriteData(SLAVE_I2C_ID_DBBUS, &szDbBusTxData[0], 1);    
 
-        nRegData = RegGet16BitValue(0x160C); 
-        RegSet16BitValue(0x160C, nRegData & (~0x01));      
+        RegSet16BitValue(0x160C, RegGet16BitValue(0x160C) & (~0x01)); // Clear burst mode
 
         DBG("Wait info block write done flag\n");
 
@@ -4284,7 +4722,6 @@ static s32 _DrvFwCtrlUpdateFirmwareCash(u8 szFwData[][1024])
     
     if (g_ChipType == CHIP_TYPE_MSG21XXA) // (0x02)
     {
-	#if 0
 //        u16 nChipType;
         u8 nChipVersion = 0;
 
@@ -4318,6 +4755,8 @@ static s32 _DrvFwCtrlUpdateFirmwareCash(u8 szFwData[][1024])
         if (nChipVersion == 3)
         {
 #ifdef CONFIG_UPDATE_FIRMWARE_BY_SW_ID
+            if(0)
+			    _DrvFwCtrlUpdateFirmwareC33(szFwData, EMEM_MAIN);
             return _DrvFwCtrlMsg21xxaUpdateFirmwareBySwId(szFwData, EMEM_MAIN);
 #else
             return _DrvFwCtrlUpdateFirmwareC33(szFwData, EMEM_MAIN);
@@ -4326,13 +4765,13 @@ static s32 _DrvFwCtrlUpdateFirmwareCash(u8 szFwData[][1024])
         else
         {
 #ifdef CONFIG_UPDATE_FIRMWARE_BY_SW_ID
+            if(0)
+			    return _DrvFwCtrlUpdateFirmwareC32(szFwData, EMEM_ALL);
             return _DrvFwCtrlMsg21xxaUpdateFirmwareBySwId(szFwData, EMEM_MAIN);
 #else
             return _DrvFwCtrlUpdateFirmwareC32(szFwData, EMEM_ALL);
 #endif        
         }
-	#endif
-	return -1;
     }
     else if (g_ChipType == CHIP_TYPE_MSG22XX) // (0x7A)
     {
@@ -4491,6 +4930,8 @@ void DrvFwCtrlOptimizeCurrentConsumption(void)
     {
         DBG("*** %s() ***\n", __func__);
 
+        mutex_lock(&g_Mutex);
+
 #ifdef CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM
 #ifdef CONFIG_ENABLE_DMA_IIC
         DmaReset();
@@ -4537,6 +4978,8 @@ void DrvFwCtrlOptimizeCurrentConsumption(void)
         DbBusIICNotUseBus();
         DbBusNotStopMCU();
         DbBusExitSerialDebugMode();
+
+        mutex_unlock(&g_Mutex);
     }
 }
 
@@ -4640,8 +5083,25 @@ void DrvFwCtrlGetCustomerFirmwareVersion(u16 *pMajor, u16 *pMinor, u8 **ppVersio
         DbBusIICReshape();
         mdelay(100);
         
-        // Stop mcu
+#ifdef CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
+        // Stop MCU
         RegSetLByteValue(0x0FE6, 0x01); 
+    
+        // Change MCU clock deglich mux source
+        RegSet16BitValue(0x1E54, (RegGet16BitValue(0x1E54) | BIT0)); 
+
+        // Change PIU clock to 48 MHz
+        RegSet16BitValue(0x1E22, (RegGet16BitValue(0x1E22) | BIT14)); 
+
+        // Set MCU clock setting
+        RegSet16BitValue(0x1E22, (RegGet16BitValue(0x1E22) & (~(BIT3 | BIT2)))); 
+
+        // Set DB bus clock setting
+        RegSet16BitValue(0x1E24, (RegGet16BitValue(0x1E24) & (~(BIT3 | BIT2)))); 
+#else
+        // Stop MCU
+        RegSetLByteValue(0x0FE6, 0x01); 
+#endif //CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
 
         // Stop watchdog
         RegSet16BitValue(0x3C60, 0xAA55);
@@ -4710,8 +5170,25 @@ void DrvFwCtrlGetPlatformFirmwareVersion(u8 **ppVersion)
 
     if (g_ChipType == CHIP_TYPE_MSG22XX) // Only MSG22XX support platform firmware version
     {
-        // Stop mcu
+#ifdef CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
+        // Stop MCU
         RegSetLByteValue(0x0FE6, 0x01); 
+    
+        // Change MCU clock deglich mux source
+        RegSet16BitValue(0x1E54, (RegGet16BitValue(0x1E54) | BIT0)); 
+
+        // Change PIU clock to 48 MHz
+        RegSet16BitValue(0x1E22, (RegGet16BitValue(0x1E22) | BIT14)); 
+
+        // Set MCU clock setting
+        RegSet16BitValue(0x1E22, (RegGet16BitValue(0x1E22) & (~(BIT3 | BIT2)))); 
+
+        // Set DB bus clock setting
+        RegSet16BitValue(0x1E24, (RegGet16BitValue(0x1E24) & (~(BIT3 | BIT2)))); 
+#else
+        // Stop MCU
+        RegSetLByteValue(0x0FE6, 0x01); 
+#endif //CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K
 
         // Stop watchdog
         RegSet16BitValue(0x3C60, 0xAA55);
@@ -4817,7 +5294,6 @@ void DrvFwCtrlHandleFingerTouch(void)
     s32 rc;
 
 //    DBG("*** %s() ***\n", __func__);  // add for debug
-    
     if (_gIsDisableFinagerTouch == 1)
     {
         DBG("Skip finger touch for handling get firmware info or change firmware mode\n");
@@ -5038,7 +5514,16 @@ void DrvFwCtrlHandleFingerTouch(void)
             }
             else
             {
+#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL // TYPE B PROTOCOL
+                for (i = 0; i < MAX_TOUCH_NUM; i ++) 
+                {
+                    DrvPlatformLyrFingerTouchReleased(0, 0, i);
+                }
+                
+                input_mt_sync_frame(g_InputDevice);
+#else // TYPE A PROTOCOL
                 DrvPlatformLyrFingerTouchReleased(0, 0, 0);
+#endif //CONFIG_ENABLE_TYPE_B_PROTOCOL
 
                 input_sync(g_InputDevice);
             }
@@ -5048,15 +5533,15 @@ void DrvFwCtrlHandleFingerTouch(void)
             if (tInfo.nTouchKeyCode != 0)
             {
 #ifdef CONFIG_TP_HAVE_KEY
-                if (tInfo.nTouchKeyCode == 2) // TOUCH_KEY_HOME
+                if (tInfo.nTouchKeyCode == 4) // TOUCH_KEY_HOME
                 {
                     nTouchKeyCode = g_TpVirtualKey[1];           
                 }
-                else if (tInfo.nTouchKeyCode == 4) // TOUCH_KEY_MENU
+                else if (tInfo.nTouchKeyCode == 1) // TOUCH_KEY_MENU
                 {
                     nTouchKeyCode = g_TpVirtualKey[0];
                 }           
-                else if (tInfo.nTouchKeyCode == 1) // TOUCH_KEY_BACK
+                else if (tInfo.nTouchKeyCode == 2) // TOUCH_KEY_BACK
                 {
                     nTouchKeyCode = g_TpVirtualKey[2];
                 }           
@@ -5076,6 +5561,10 @@ void DrvFwCtrlHandleFingerTouch(void)
                     input_report_key(g_InputDevice, nTouchKeyCode, 1);
 
                     input_sync(g_InputDevice);
+
+#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL 
+                    _gPrevTouchStatus = 0;
+#endif //CONFIG_ENABLE_TYPE_B_PROTOCOL
                 }
 #endif //CONFIG_TP_HAVE_KEY
             }
@@ -5083,10 +5572,29 @@ void DrvFwCtrlHandleFingerTouch(void)
             {
                 DBG("tInfo->nFingerNum = %d...............\n", tInfo.nFingerNum);
                 
+#ifdef CONFIG_ENABLE_TYPE_B_PROTOCOL
+                for (i = 0; i < MAX_TOUCH_NUM; i ++) 
+                {
+                    if (tInfo.nFingerNum != 0)
+                    {
+                        if (_gCurrPress[i])
+                        {
+                            DrvPlatformLyrFingerTouchPressed(tInfo.tPoint[i].nX, tInfo.tPoint[i].nY, 0, i);
+                        }
+                        else
+                        {
+                            DrvPlatformLyrFingerTouchReleased(0, 0, i);
+                        }
+                    }
+                }
+                
+                input_mt_sync_frame(g_InputDevice);
+#else // TYPE A PROTOCOL
                 for (i = 0; i < tInfo.nFingerNum; i ++) 
                 {
                     DrvPlatformLyrFingerTouchPressed(tInfo.tPoint[i].nX, tInfo.tPoint[i].nY, 0, 0);
                 }
+#endif //CONFIG_ENABLE_TYPE_B_PROTOCOL
 
                 input_sync(g_InputDevice);
             }
@@ -5117,7 +5625,7 @@ void DrvFwCtrlHandleFingerTouch(void)
 //------------------------------------------------------------------------------//
 
 #ifdef CONFIG_ENABLE_GESTURE_WAKEUP
-extern struct i2c_client *g_I2cClient;
+
 void DrvFwCtrlOpenGestureWakeup(u32 *pMode)
 {
     u8 szDbBusTxData[4] = {0};
@@ -5245,23 +5753,11 @@ void DrvFwCtrlOpenGestureWakeup(u32 *pMode)
 
     g_GestureWakeupFlag = 1; // gesture wakeup is enabled
 #endif //CONFIG_SUPPORT_64_TYPES_GESTURE_WAKEUP_MODE
-
-	//add for phone in sleep can't wakeup
-	if (device_may_wakeup(&g_I2cClient->dev))
-	{	
-		enable_irq_wake(g_I2cClient->irq);
-	} 
 }
 
 void DrvFwCtrlCloseGestureWakeup(void)
 {
     DBG("*** %s() ***\n", __func__);
-
-	//add for phone in sleep can't wakeup
-	if (device_may_wakeup(&g_I2cClient->dev))
-	{
-		disable_irq_wake(g_I2cClient->irq);
-	}
 
     g_GestureWakeupFlag = 0; // gesture wakeup is disabled
 }
@@ -5509,7 +6005,8 @@ void DrvFwCtrlCheckFirmwareUpdateBySwId(void)
 {
     if (g_ChipType == CHIP_TYPE_MSG21XXA)   
     {
-        //_DrvFwCtrlMsg21xxaCheckFirmwareUpdateBySwId();
+	    if(0)
+        _DrvFwCtrlMsg21xxaCheckFirmwareUpdateBySwId();
     }
     else if (g_ChipType == CHIP_TYPE_MSG22XX)    
     {

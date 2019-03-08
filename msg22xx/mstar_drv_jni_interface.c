@@ -44,14 +44,15 @@ extern u32 SLAVE_I2C_ID_DBBUS;
 extern u32 SLAVE_I2C_ID_DWI2C;
 extern u8 g_IsHotknotEnabled;
 extern u8 g_IsBypassHotknot;
+extern struct i2c_client *g_I2cClient;
 
 
 ////////////////////////////////////////////////////////////
 /// LOCAL VARIABLE DEFINITION
 ////////////////////////////////////////////////////////////
-static MsgToolDrvCmd_t * _gMsgToolCmdIn;
-static u8 * _gSndCmdData;
-static u8 * _gRtnCmdData;
+static MsgToolDrvCmd_t * _gMsgToolCmdIn = NULL;
+static u8 * _gSndCmdData = NULL;
+static u8 * _gRtnCmdData = NULL;
 
 
 
@@ -150,7 +151,7 @@ void _ClearMsgToolMem(void)
 }
 
 
-static MsgToolDrvCmd_t* _TransCmdFromUser( unsigned long nArg )
+static MsgToolDrvCmd_t* _TransJniCmdFromUser( unsigned long nArg )
 {
     long nRet; 
     MsgToolDrvCmd_t tCmdIn;    
@@ -179,7 +180,7 @@ static MsgToolDrvCmd_t* _TransCmdFromUser( unsigned long nArg )
 }
 
 
-static void _TransCmdToUser( MsgToolDrvCmd_t *pTransCmd, unsigned long nArg )
+static void _TransJniCmdToUser( MsgToolDrvCmd_t *pTransCmd, unsigned long nArg )
 {
     MsgToolDrvCmd_t tCmdOut;
     long nRet;
@@ -202,7 +203,7 @@ long MsgToolIoctl( struct file *pFile, unsigned int nCmd, unsigned long nArg )
         case MSGTOOL_IOCTL_RUN_CMD:
             {      
                 MsgToolDrvCmd_t *pTransCmd;			
-                pTransCmd = _TransCmdFromUser( nArg );  
+                pTransCmd = _TransJniCmdFromUser( nArg );  
                 switch (pTransCmd->nCmdId)
                 {
                     case MSGTOOL_RESETHW:
@@ -210,11 +211,11 @@ long MsgToolIoctl( struct file *pFile, unsigned int nCmd, unsigned long nArg )
                         break;
                     case MSGTOOL_REGGETXBYTEVALUE:
                         _RegGetXByteData(pTransCmd);                       
-	                    _TransCmdToUser(pTransCmd, nArg);                                                 
+	                    _TransJniCmdToUser(pTransCmd, nArg);                                                 
                         break;
                     case MSGTOOL_HOTKNOTSTATUS:
                         _gRtnCmdData[0] = g_IsHotknotEnabled;                       
-                        _TransCmdToUser(pTransCmd, nArg);                                                 
+                        _TransJniCmdToUser(pTransCmd, nArg);                                                 
                         break;
                     case MSGTOOL_FINGERTOUCH:
                         if(pTransCmd->nSndCmdLen == 1)
@@ -242,6 +243,16 @@ long MsgToolIoctl( struct file *pFile, unsigned int nCmd, unsigned long nArg )
                         break;
                     case MSGTOOL_DEVICEPOWEROFF:
                         DrvPlatformLyrTouchDevicePowerOff();
+                        break;                        
+                    case MSGTOOL_GETSMDBBUS:
+                        DBG("*** MSGTOOL_GETSMDBBUS ***\n");
+                        _gRtnCmdData[0] = SLAVE_I2C_ID_DBBUS&0xFF;                       
+                        _gRtnCmdData[1] = SLAVE_I2C_ID_DWI2C&0xFF;                                               
+                        _TransJniCmdToUser(pTransCmd, nArg);                                                 
+                        break;
+                    case MSGTOOL_SETIICDATARATE:
+                        DBG("*** MSGTOOL_SETIICDATARATE ***\n");                        
+                        DrvPlatformLyrSetIicDataRate(g_I2cClient, ((_gSndCmdData[1]<<8)|_gSndCmdData[0])*1000);
                         break;                        
                     default:  
                         break;
@@ -271,10 +282,24 @@ void CreateMsgToolMem(void)
 void DeleteMsgToolMem(void)
 {
     DBG("*** %s() ***\n", __func__);
-  
-    kfree(_gMsgToolCmdIn);
-    kfree(_gSndCmdData);
-    kfree(_gRtnCmdData);
+ 
+    if (_gMsgToolCmdIn)
+    {
+        kfree(_gMsgToolCmdIn);
+        _gMsgToolCmdIn = NULL;
+    }
+    
+    if (_gSndCmdData)
+    {
+        kfree(_gSndCmdData);
+        _gSndCmdData = NULL;
+    }
+    
+    if (_gRtnCmdData)
+    {
+        kfree(_gRtnCmdData);
+        _gRtnCmdData = NULL;
+    }
 }
 
 #endif //CONFIG_ENABLE_JNI_INTERFACE

@@ -51,6 +51,8 @@
 #define DEMO_MODE_PACKET_LENGTH    (8)
 #define MAX_TOUCH_NUM           (2)     
 
+#define MAX_ERASE_EFLASH_TIMES   (2) // for update firmware of MSG22xx 
+
 #define MSG21XXA_FIRMWARE_MAIN_BLOCK_SIZE (32) //32K
 #define MSG21XXA_FIRMWARE_INFO_BLOCK_SIZE (1)  //1K
 #define MSG21XXA_FIRMWARE_WHOLE_SIZE (MSG21XXA_FIRMWARE_MAIN_BLOCK_SIZE+MSG21XXA_FIRMWARE_INFO_BLOCK_SIZE) //33K
@@ -120,9 +122,9 @@ typedef struct
  * Please modify the SW ID of the below enum value depends on the TP vendor that you are using.
  */
 typedef enum {
-    MSG22XX_SW_ID_XXXX = 0x0005,
+    MSG22XX_SW_ID_XXXX = 0x0001,
     MSG22XX_SW_ID_YYYY = 0x0002,  
-    MSG22XX_SW_ID_UNDEFINED = 0x00FF,
+    MSG22XX_SW_ID_UNDEFINED
 } Msg22xxSwId_e;
 
 

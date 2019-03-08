@@ -38,7 +38,7 @@
 #ifdef CONFIG_ENABLE_ITO_MP_TEST
 
 // Modify.
-/*#include "msg21xxa_open_test_ANA1_X.h"
+#include "msg21xxa_open_test_ANA1_X.h"
 #include "msg21xxa_open_test_ANA2_X.h"
 #include "msg21xxa_open_test_ANA1_B_X.h"
 #include "msg21xxa_open_test_ANA2_B_X.h"
@@ -64,30 +64,30 @@
 #ifdef CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE  
 #include "msg21xxa_short_test_ANA4_Y.h"
 #endif //CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE
-*/
-// Modify.
-#include "msg22xx_open_test_RIU1_YEJI.h"
-#include "msg22xx_open_test_RIU2_YEJI.h"
-#include "msg22xx_open_test_RIU3_YEJI.h"
 
-/*#include "msg22xx_open_test_RIU1_Y.h"
+// Modify.
+#include "msg22xx_open_test_RIU1_X.h"
+#include "msg22xx_open_test_RIU2_X.h"
+#include "msg22xx_open_test_RIU3_X.h"
+
+#include "msg22xx_open_test_RIU1_Y.h"
 #include "msg22xx_open_test_RIU2_Y.h"
-#include "msg22xx_open_test_RIU3_Y.h"*/
+#include "msg22xx_open_test_RIU3_Y.h"
 
 // Modify.
-#include "msg22xx_short_test_RIU1_YEJI.h"
-#include "msg22xx_short_test_RIU2_YEJI.h"
-#include "msg22xx_short_test_RIU3_YEJI.h"
+#include "msg22xx_short_test_RIU1_X.h"
+#include "msg22xx_short_test_RIU2_X.h"
+#include "msg22xx_short_test_RIU3_X.h"
 #ifdef CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE  
-#include "msg22xx_short_test_RIU4_YEJI.h"
+#include "msg22xx_short_test_RIU4_X.h"
 #endif //CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE
 
-/*#include "msg22xx_short_test_RIU1_Y.h"
+#include "msg22xx_short_test_RIU1_Y.h"
 #include "msg22xx_short_test_RIU2_Y.h"
 #include "msg22xx_short_test_RIU3_Y.h"
 #ifdef CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE  
 #include "msg22xx_short_test_RIU4_Y.h"
-#endif //CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE*/
+#endif //CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE
 
 
 /*=============================================================*/
@@ -95,7 +95,7 @@
 /*=============================================================*/
 
 // Modify.
-#define TP_OF_YEJI    (5) //(2)
+#define TP_OF_X    (1) //(2)
 #define TP_OF_Y    (4)
 
 /*=============================================================*/
@@ -133,15 +133,6 @@ static s8 _gDataFlag1[MAX_CHANNEL_NUM] = {0};
 static s8 _gDataFlag2[MAX_CHANNEL_NUM] = {0};
 static s8 _gDataFlag3[MAX_CHANNEL_NUM] = {0};
 static s8 _gDataFlag4[MAX_CHANNEL_NUM] = {0};
-
-//add by mike.li for rawdata_show[2015.06.30]
-static s16 _gRawData1_open[MAX_CHANNEL_NUM] = {0};
-static s16 _gRawData2_open[MAX_CHANNEL_NUM] = {0};
-static s8 _gDataFlag1_open[MAX_CHANNEL_NUM] = {0};
-static s8 _gDataFlag2_open[MAX_CHANNEL_NUM] = {0};
-static u8 _gTestFailChannel_open[MAX_CHANNEL_NUM] = {0};
-static u32 _gTestFailChannelCount_open = 0;
-//add end
 
 static u8 _gItoTestKeyNum = 0;
 static u8 _gItoTestDummyNum = 0;
@@ -398,7 +389,7 @@ static u16 _DrvMpTestItoTestChooseTpType(void)
         nTpType = _DrvMpTestItoTestGetTpType();
         DBG("nTpType = %d, i = %d\n", nTpType, i);
 
-        if (TP_OF_YEJI == nTpType || TP_OF_Y == nTpType) // Modify.
+        if (TP_OF_X == nTpType || TP_OF_Y == nTpType) // Modify.
         {
             break;
         }
@@ -412,11 +403,11 @@ static u16 _DrvMpTestItoTestChooseTpType(void)
         }
     }
     
-    if (TP_OF_YEJI == nTpType) // Modify. 
+    if (TP_OF_X == nTpType) // Modify. 
     {
         if (g_ChipType == CHIP_TYPE_MSG21XXA)   
         {
-            /*_gOpen1 = MSG21XXA_open_1_X;
+            _gOpen1 = MSG21XXA_open_1_X;
             _gOpen1B = MSG21XXA_open_1B_X;
             _gOpen2 = MSG21XXA_open_2_X;
             _gOpen2B = MSG21XXA_open_2B_X;
@@ -459,62 +450,62 @@ static u16 _DrvMpTestItoTestChooseTpType(void)
             _gItoTestKeyNum = MSG21XXA_NUM_KEY_X;
             _gItoTestDummyNum = MSG21XXA_NUM_DUMMY_X;
             _gItoTestTriangleNum = MSG21XXA_NUM_SENSOR_X;
-            _gIsEnable2R = MSG21XXA_ENABLE_2R_X;*/
+            _gIsEnable2R = MSG21XXA_ENABLE_2R_X;
         }
         else if (g_ChipType == CHIP_TYPE_MSG22XX)   
         {
-            _gOpenRIU1 = MSG22XX_open_1_YEJI;
-            _gOpenRIU2 = MSG22XX_open_2_YEJI;
-            _gOpenRIU3 = MSG22XX_open_3_YEJI;
+            _gOpenRIU1 = MSG22XX_open_1_X;
+            _gOpenRIU2 = MSG22XX_open_2_X;
+            _gOpenRIU3 = MSG22XX_open_3_X;
 
-            _gShort_RIU1 = MSG22XX_short_1_YEJI;
-            _gShort_RIU2 = MSG22XX_short_2_YEJI;
-            _gShort_RIU3 = MSG22XX_short_3_YEJI;
+            _gShort_RIU1 = MSG22XX_short_1_X;
+            _gShort_RIU2 = MSG22XX_short_2_X;
+            _gShort_RIU3 = MSG22XX_short_3_X;
 
-            _gOpenSubFrameNum1 = MSG22XX_NUM_OPEN_1_SENSOR_YEJI;
-            _gOpenSubFrameNum2 = MSG22XX_NUM_OPEN_2_SENSOR_YEJI;
-            _gOpenSubFrameNum3 = MSG22XX_NUM_OPEN_3_SENSOR_YEJI;
-            _gShortSubFrameNum1 = MSG22XX_NUM_SHORT_1_SENSOR_YEJI;
-            _gShortSubFrameNum2 = MSG22XX_NUM_SHORT_2_SENSOR_YEJI;
-            _gShortSubFrameNum3 = MSG22XX_NUM_SHORT_3_SENSOR_YEJI;
+            _gOpenSubFrameNum1 = MSG22XX_NUM_OPEN_1_SENSOR_X;
+            _gOpenSubFrameNum2 = MSG22XX_NUM_OPEN_2_SENSOR_X;
+            _gOpenSubFrameNum3 = MSG22XX_NUM_OPEN_3_SENSOR_X;
+            _gShortSubFrameNum1 = MSG22XX_NUM_SHORT_1_SENSOR_X;
+            _gShortSubFrameNum2 = MSG22XX_NUM_SHORT_2_SENSOR_X;
+            _gShortSubFrameNum3 = MSG22XX_NUM_SHORT_3_SENSOR_X;
 
 #ifdef CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE
-            _gShort_RIU4 = MSG22XX_short_4_YEJI;
-            _gShortSubFrameNum4 = MSG22XX_NUM_SHORT_4_SENSOR_YEJI;
+            _gShort_RIU4 = MSG22XX_short_4_X;
+            _gShortSubFrameNum4 = MSG22XX_NUM_SHORT_4_SENSOR_X;
 #endif //CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE
 
-            _gMAP1 = MSG22XX_MAP1_YEJI;
-            _gMAP2 = MSG22XX_MAP2_YEJI;
-            _gMAP3 = MSG22XX_MAP3_YEJI;
-            _gMAP40_1 = MSG22XX_MAP40_1_YEJI;
-            _gMAP40_2 = MSG22XX_MAP40_2_YEJI;
-            _gMAP41_1 = MSG22XX_MAP41_1_YEJI;
-            _gMAP41_2 = MSG22XX_MAP41_2_YEJI;
+            _gMAP1 = MSG22XX_MAP1_X;
+            _gMAP2 = MSG22XX_MAP2_X;
+            _gMAP3 = MSG22XX_MAP3_X;
+            _gMAP40_1 = MSG22XX_MAP40_1_X;
+            _gMAP40_2 = MSG22XX_MAP40_2_X;
+            _gMAP41_1 = MSG22XX_MAP41_1_X;
+            _gMAP41_2 = MSG22XX_MAP41_2_X;
 
-            _gSHORT_MAP1 = MSG22XX_SHORT_MAP1_YEJI;
-            _gSHORT_MAP2 = MSG22XX_SHORT_MAP2_YEJI;
-            _gSHORT_MAP3 = MSG22XX_SHORT_MAP3_YEJI;
+            _gSHORT_MAP1 = MSG22XX_SHORT_MAP1_X;
+            _gSHORT_MAP2 = MSG22XX_SHORT_MAP2_X;
+            _gSHORT_MAP3 = MSG22XX_SHORT_MAP3_X;
 
 #ifdef CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE       
-            _gMAP40_3 = MSG22XX_MAP40_3_YEJI;
-            _gMAP40_4 = MSG22XX_MAP40_4_YEJI;
-            _gMAP41_3 = MSG22XX_MAP41_3_YEJI;
-            _gMAP41_4 = MSG22XX_MAP41_4_YEJI;
+            _gMAP40_3 = MSG22XX_MAP40_3_X;
+            _gMAP40_4 = MSG22XX_MAP40_4_X;
+            _gMAP41_3 = MSG22XX_MAP41_3_X;
+            _gMAP41_4 = MSG22XX_MAP41_4_X;
 
-            _gSHORT_MAP4 = MSG22XX_SHORT_MAP4_YEJI;
+            _gSHORT_MAP4 = MSG22XX_SHORT_MAP4_X;
 #endif //CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE
  
-            _gItoTestKeyNum = MSG22XX_NUM_KEY_YEJI;
-            _gItoTestDummyNum = MSG22XX_NUM_DUMMY_YEJI;
-            _gItoTestTriangleNum = MSG22XX_NUM_SENSOR_YEJI;
-            _gIsEnable2R = MSG22XX_ENABLE_2R_YEJI;
+            _gItoTestKeyNum = MSG22XX_NUM_KEY_X;
+            _gItoTestDummyNum = MSG22XX_NUM_DUMMY_X;
+            _gItoTestTriangleNum = MSG22XX_NUM_SENSOR_X;
+            _gIsEnable2R = MSG22XX_ENABLE_2R_X;
         }
     }
     else if (TP_OF_Y == nTpType) // Modify. 
     {
         if (g_ChipType == CHIP_TYPE_MSG21XXA)   
         {
-            /*_gOpen1 = MSG21XXA_open_1_Y;
+            _gOpen1 = MSG21XXA_open_1_Y;
             _gOpen1B = MSG21XXA_open_1B_Y;
             _gOpen2 = MSG21XXA_open_2_Y;
             _gOpen2B = MSG21XXA_open_2B_Y;
@@ -557,11 +548,11 @@ static u16 _DrvMpTestItoTestChooseTpType(void)
              _gItoTestKeyNum = MSG21XXA_NUM_KEY_Y;
              _gItoTestDummyNum = MSG21XXA_NUM_DUMMY_Y;
              _gItoTestTriangleNum = MSG21XXA_NUM_SENSOR_Y;
-             _gIsEnable2R = MSG21XXA_ENABLE_2R_Y;*/
+             _gIsEnable2R = MSG21XXA_ENABLE_2R_Y;
         }
         else if (g_ChipType == CHIP_TYPE_MSG22XX)   
         {
-             /*_gOpenRIU1 = MSG22XX_open_1_Y;
+             _gOpenRIU1 = MSG22XX_open_1_Y;
              _gOpenRIU2 = MSG22XX_open_2_Y;
              _gOpenRIU3 = MSG22XX_open_3_Y;
 
@@ -605,7 +596,7 @@ static u16 _DrvMpTestItoTestChooseTpType(void)
              _gItoTestKeyNum = MSG22XX_NUM_KEY_Y;
              _gItoTestDummyNum = MSG22XX_NUM_DUMMY_Y;
              _gItoTestTriangleNum = MSG22XX_NUM_SENSOR_Y;
-             _gIsEnable2R = MSG22XX_ENABLE_2R_Y;*/
+             _gIsEnable2R = MSG22XX_ENABLE_2R_Y;
         }
     }
     else
@@ -1626,19 +1617,10 @@ static void _DrvMpTestItoOpenTestMsg22xxFirst(u8 nItemId, s16 *pRawData, s8 *pDa
 
     for (i = 0; i < nSubFrameNum; i ++)
     {
-        //printk("MIKE: szTmpRawData[%d * 4] >> 3 = %d\n", i, szTmpRawData[i * 4] >> 3); // add for debug
-        //printk("MIKE: pMapping[%d] = %d\n", i, pMapping[i]); // add for debug
+//        DBG("szTmpRawData[%d * 4] >> 3 = %d\n", i, szTmpRawData[i * 4] >> 3); // add for debug
+//        DBG("pMapping[%d] = %d\n", i, pMapping[i]); // add for debug
 
-		//open test rawdata backup add by mike.li[2015.06.30]
-		if (nItemId == 40) {
-			_gRawData1_open[pMapping[i]] = (szTmpRawData[i * 4] >> 3);  // Filter to ADC
-			_gDataFlag1_open[pMapping[i]] = 1;
-		} else {
-			_gRawData2_open[pMapping[i]] = (szTmpRawData[i * 4] >> 3);  // Filter to ADC
-			_gDataFlag2_open[pMapping[i]] = 1;
-		}
-		//end
-        pRawData[pMapping[i]] = (szTmpRawData[i * 4] >> 3);  // Filter to ADC
+        pRawData[pMapping[i]] = (szTmpRawData[i * 4] >> 3);  // Filter to ADC 
         pDataFlag[pMapping[i]] = 1;
     }
 }
@@ -1773,7 +1755,6 @@ static void _DrvMpTestItoShortTestMsg22xxFirst(u8 nItemId, s16 *pRawData, s8 *pD
         }
     }
 
-    //short test rawdata marking mike.li.
     for (i = 0; i < nSensorNum; i ++)
     {
         if ((abs(szIIR1[i]) > 4000) || (abs(szIIR2[i]) > 4000))
@@ -1786,9 +1767,9 @@ static void _DrvMpTestItoShortTestMsg22xxFirst(u8 nItemId, s16 *pRawData, s8 *pD
         }
         pDataFlag[pMapping[i]] = 1;
 
-        //printk("MIKE:szIIR1[%d] = %d, szIIR2[%d] = %d\n", i, szIIR1[i], i, szIIR2[i]); // add for debug
-        //printk("MIKE:pRawData[%d] = %d\n", pMapping[i], pRawData[pMapping[i]]); // add for debug
-        //printk("MIKE:pMapping[%d] = %d\n", i, pMapping[i]); // add for debug
+//        DBG("szIIR1[%d] = %d, szIIR2[%d] = %d\n", i, szIIR1[i], i, szIIR2[i]); // add for debug
+//        DBG("pRawData[%d] = %d\n", pMapping[i], pRawData[pMapping[i]]); // add for debug
+//        DBG("pMapping[%d] = %d\n", i, pMapping[i]); // add for debug
     }
 }
 
@@ -1828,7 +1809,6 @@ static u8 _DrvMpTestMsg22xxCheckFirmwareVersion(void) // Only MSG22XX support pl
     // Enable burst mode
     RegSet16BitValue(0x160C, (RegGet16BitValue(0x160C) | 0x01));
 
-    
     for (i = 0; i < 3; i ++)
     {
         RegSetLByteValue(0x160E, 0x01); 
@@ -2267,7 +2247,7 @@ static ItoTestResult_e _DrvMpTestItoShortTestSecond(u8 nItemId)
     return nRetVal;
 }
 
-s32 _DrvMpTestItoOpenTest(void)
+static ItoTestResult_e _DrvMpTestItoOpenTest(void)
 {
     ItoTestResult_e nRetVal1 = ITO_TEST_OK, nRetVal2 = ITO_TEST_OK, nRetVal3 = ITO_TEST_OK;
     u32 i;
@@ -2282,7 +2262,7 @@ s32 _DrvMpTestItoOpenTest(void)
 
     DBG("open test start\n");
 
-    DrvPlatformLyrSetIicDataRate(g_I2cClient, 50000); //50 KHZ
+    DrvPlatformLyrSetIicDataRate(g_I2cClient, 50000); //50 KHz
   
     DrvPlatformLyrDisableFingerTouchReport();
     DrvPlatformLyrTouchDeviceResetHw();
@@ -2317,11 +2297,7 @@ s32 _DrvMpTestItoOpenTest(void)
         _gDataFlag2[i] = 0;
         _gDataFlag3[i] = 0;
         _gTestFailChannel[i] = 0;
-        _gDataFlag1_open[i] = 0;
-        _gDataFlag2_open[i] = 0;
-		_gRawData1_open[i] = 0;
-		_gRawData2_open[i] = 0;
-    }
+    }	
 	
     _gTestFailChannelCount = 0; // Reset _gTestFailChannelCount to 0 before test start
 
@@ -2364,20 +2340,10 @@ s32 _DrvMpTestItoOpenTest(void)
     {
         nRetVal3 = _DrvMpTestItoOpenTestSecond(41);
     }
-/*    
-    if (g_ChipType == CHIP_TYPE_MSG21XXA)
-    {
-        _DrvMpTestItoOpenTestMsg21xxaFirst(42, _gRawData3, _gDataFlag3);
-    }
-    else if (g_ChipType == CHIP_TYPE_MSG22XX)
-    {
-        _DrvMpTestItoOpenTestMsg22xxFirst(42, _gRawData3, _gDataFlag3);
-    }
-*/
     
     ITO_TEST_END:
 
-    DrvPlatformLyrSetIicDataRate(g_I2cClient, 100000); //100 KHZ
+    DrvPlatformLyrSetIicDataRate(g_I2cClient, 100000); //100 KHz
     
     DrvPlatformLyrTouchDeviceResetHw();
     DrvPlatformLyrEnableFingerTouchReport();
@@ -2413,7 +2379,7 @@ static ItoTestResult_e _DrvMpTestItoShortTest(void)
 
     DBG("short test start\n");
 
-    DrvPlatformLyrSetIicDataRate(g_I2cClient, 50000); //50 KHZ
+    DrvPlatformLyrSetIicDataRate(g_I2cClient, 50000); //50 KHz
   
     DrvPlatformLyrDisableFingerTouchReport();
     DrvPlatformLyrTouchDeviceResetHw(); 
@@ -2503,7 +2469,7 @@ static ItoTestResult_e _DrvMpTestItoShortTest(void)
     
     ITO_TEST_END:
 
-    DrvPlatformLyrSetIicDataRate(g_I2cClient, 100000); //100 KHZ
+    DrvPlatformLyrSetIicDataRate(g_I2cClient, 100000); //100 KHz
     
     DrvPlatformLyrTouchDeviceResetHw();
     DrvPlatformLyrEnableFingerTouchReport();
@@ -2526,7 +2492,7 @@ static ItoTestResult_e _DrvMpTestItoShortTest(void)
 
 static void _DrvMpTestItoTestDoWork(struct work_struct *pWork)
 {
-    s32 nRetVal = ITO_TEST_OK;
+    ItoTestResult_e nRetVal = ITO_TEST_OK;
     
     DBG("*** %s() _gIsInMpTest = %d, _gTestRetryCount = %d ***\n", __func__, _gIsInMpTest, _gTestRetryCount);
 
@@ -2589,9 +2555,6 @@ s32 DrvMpTestGetTestResult(void)
 {
     DBG("*** %s() ***\n", __func__);
     DBG("_gCtpMpTestStatus = %d\n", _gCtpMpTestStatus);
-	//add by mike.li for make sure _gCtpMpTestStatus already get true value.
-	while (_gCtpMpTestStatus == ITO_TEST_UNDER_TESTING)
-		msleep(100);
 
     return _gCtpMpTestStatus;
 }
@@ -2826,137 +2789,6 @@ void DrvMpTestCreateMpTestWorkQueue(void)
     _gCtpMpTestWorkQueue = create_singlethread_workqueue("ctp_mp_test");
     INIT_WORK(&_gCtpItoTestWork, _DrvMpTestItoTestDoWork);
 }
-
-//add by mike.li for show test log.[2015.07.02]
-char *DrvMpTestGetTestDataLog_Show(ItoTestMode_e eItoTestMode, char **pDataLog)
-{
-    u32 i;
-    //u8 nHighByte, nLowByte;
-
-    DBG("*** %s() ***\n", __func__);
-
-    if (eItoTestMode == ITO_TEST_MODE_OPEN_TEST)
-    {
-		*pDataLog += sprintf(*pDataLog, "--open test--\n");
-		*pDataLog += sprintf(*pDataLog, "--gRawData1--\n");
-        for (i = 0; i < MAX_CHANNEL_NUM; i ++)
-        {
-            if (_gDataFlag1_open[i] == 1)
-            {
-				// indicate it is a on-use channel number
-				*pDataLog += sprintf(*pDataLog, "CHNL%d:", i);
-				*pDataLog += sprintf(*pDataLog, " %2d\n", _gRawData1_open[i]);
-            }
-        }
-
-		*pDataLog += sprintf(*pDataLog, "\n--gRawData2--\n");
-        for (i = 0; i < MAX_CHANNEL_NUM; i ++)
-        {
-            if (_gDataFlag2_open[i] == 1)
-            {
-				// indicate it is a on-use channel number
-				*pDataLog += sprintf(*pDataLog, "CHNL%d:", i);
-				*pDataLog += sprintf(*pDataLog, " %2d\n", _gRawData2_open[i]);
-            }
-		}
-    }
-    else if (eItoTestMode == ITO_TEST_MODE_SHORT_TEST)
-    {
-		*pDataLog += sprintf(*pDataLog, "--short test--\n");
-		*pDataLog += sprintf(*pDataLog, "--gRawData1--\n");
-        for (i = 0; i < MAX_CHANNEL_NUM; i ++)
-        {
-            if (_gDataFlag1[i] == 1)
-            {
-				// indicate it is a on-use channel number
-				*pDataLog += sprintf(*pDataLog, "CHNL%d:", i);
-				*pDataLog += sprintf(*pDataLog, " %2d\n", _gRawData1[i]);
-            }
-        }
-
-		*pDataLog += sprintf(*pDataLog, "\n--gRawData2--\n");
-        for (i = 0; i < MAX_CHANNEL_NUM; i ++)
-        {
-            if (_gDataFlag2[i] == 1)
-            {
-				// indicate it is a on-use channel number
-				*pDataLog += sprintf(*pDataLog, "CHNL%d:", i);
-				*pDataLog += sprintf(*pDataLog, " %2d\n", _gRawData2[i]);
-            }
-        }
-
-		*pDataLog += sprintf(*pDataLog, "\n--gRawData3--\n");
-        for (i = 0; i < MAX_CHANNEL_NUM; i ++)
-        {
-            if (_gDataFlag3[i] == 1)
-            {
-				// indicate it is a on-use channel number
-				*pDataLog += sprintf(*pDataLog, "CHNL%d:", i);
-				*pDataLog += sprintf(*pDataLog, " %2d\n", _gRawData3[i]);
-            }
-        }
-
-        if (_gIsEnable2R)
-        {
-			*pDataLog += sprintf(*pDataLog, "\n--gRawData4--\n");
-            for (i = 0; i < MAX_CHANNEL_NUM; i ++)
-            {
-				if (_gDataFlag4[i] == 1)
-				{
-					// indicate it is a on-use channel number
-					*pDataLog += sprintf(*pDataLog, "CHNL%d:", i);
-					*pDataLog += sprintf(*pDataLog, " %2d\n", _gRawData4[i]);
-				}
-            }
-        }
-    }
-    else
-    {
-        DBG("*** Undefined MP Test Mode ***\n");
-    }
-
-	return *pDataLog;
-}
-
-void DrvOpenTestFailChannel_Save(void)
-{
-	u32 i;
-
-    DBG("*** %s() ***\n", __func__);
-    DBG("_gTestFailChannelCount = %d\n", _gTestFailChannelCount);
-
-	_gTestFailChannelCount_open = _gTestFailChannelCount;
-	for (i = 0; i < _gTestFailChannelCount; i ++)
-			_gTestFailChannel_open[i] = _gTestFailChannel[i];
-
-}
-
-char *DrvMpTestGetTestFailChannel_Show(ItoTestMode_e eItoTestMode, char **pFailChannel)
-{
-    u32 i;
-
-    DBG("*** %s() ***\n", __func__);
-    DBG("_gTestFailChannelCount = %d\n", _gTestFailChannelCount);
-
-	if (eItoTestMode == ITO_TEST_MODE_OPEN_TEST) {
-		*pFailChannel += sprintf(*pFailChannel, "Open test fail channel show\n");
-		for (i = 0; i < _gTestFailChannelCount_open && i < 3; i ++) {
-			*pFailChannel += sprintf(*pFailChannel, " %2d ", _gTestFailChannel_open[i]);
-		}
-    } else if (eItoTestMode == ITO_TEST_MODE_SHORT_TEST) {
-		*pFailChannel += sprintf(*pFailChannel, "Short test fail channel show\n");
-		for (i = 0; i < _gTestFailChannelCount && i < 3; i ++) {
-			*pFailChannel += sprintf(*pFailChannel, " %2d ", _gTestFailChannel[i]);
-		}
-    } else {
-        DBG("*** Undefined MP Test Mode ***\n");
-    }
-
-	*pFailChannel += sprintf(*pFailChannel, "\n");
-
-	return *pFailChannel;
-}
-//add by mike.li [2015.07.02]
 
 #endif //CONFIG_ENABLE_ITO_MP_TEST
 #endif //CONFIG_ENABLE_TOUCH_DRIVER_FOR_SELF_IC

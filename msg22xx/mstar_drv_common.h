@@ -59,18 +59,7 @@
 /* TOUCH DEVICE DRIVER RELEASE VERSION                                      */
 /*--------------------------------------------------------------------------*/
 
-extern unsigned global_irq_gpio;
-extern unsigned global_reset_gpio;
-extern struct regulator *TPvdd;
-extern struct regulator *TPvcc_i2c;
-
-
-#define MSG_FW_NAME_MAX_LEN	50
-#define MSG_VTG_MIN_UV		2600000
-#define MSG_VTG_MAX_UV		3300000
-#define MSG_I2C_VTG_MIN_UV	1800000
-#define MSG_I2C_VTG_MAX_UV	1800000
-#define DEVICE_DRIVER_RELEASE_VERSION   ("3.3.0.0")
+#define DEVICE_DRIVER_RELEASE_VERSION   ("3.6.0.0")
 
 
 /*--------------------------------------------------------------------------*/
@@ -94,16 +83,24 @@ extern struct regulator *TPvcc_i2c;
  * For a mutual-capacitive ic project(MSG26xxM/MSG28xx), please define the compile option CONFIG_ENABLE_TOUCH_DRIVER_FOR_MUTUAL_IC.
  * For a self-capacitive ic project(MSG21xxA/MSG22xx), please define the compile option CONFIG_ENABLE_TOUCH_DRIVER_FOR_SELF_IC.
  */
-//#define CONFIG_ENABLE_CHIP_MSG21XXA
 //#define CONFIG_ENABLE_TOUCH_DRIVER_FOR_MUTUAL_IC
 #define CONFIG_ENABLE_TOUCH_DRIVER_FOR_SELF_IC
+
 
 /*
  * Note.
  * The below compile option is used to enable the specific device driver code handling to make sure main board can supply power to touch ic for some specific BB chip of MTK(EX. MT6582)/SPRD(EX. SC7715)/QCOM(EX. MSM8610).
  * By default, this compile option is disabled.
  */
-//#define CONFIG_ENABLE_REGULATOR_POWER_ON
+#define CONFIG_ENABLE_REGULATOR_POWER_ON
+
+/*
+ * Note.
+ * The below compile option is used to enable touch pin control for specific SPRD/QCOM platform.
+ * This compile option is used for specific SPRD/QCOM platform only.
+ * By default, this compile option is disabled.
+ */
+#define CONFIG_ENABLE_TOUCH_PIN_CONTROL
 
 /*
  * Note.
@@ -137,10 +134,9 @@ extern struct regulator *TPvcc_i2c;
 /*
  * Note.
  * Since specific MTK BB chip report virtual key touch by using coordinate instead of key code, the below compile option is used to enable the code handling for reporting key with coordinate.
- * This compile option is used for MTK platform only.
  * By default, this compile option is disabled.
  */
-//#define CONFIG_ENABLE_REPORT_KEY_WITH_COORDINATE
+#define CONFIG_ENABLE_REPORT_KEY_WITH_COORDINATE
 
 /*
  * Note.
@@ -164,8 +160,7 @@ extern struct regulator *TPvcc_i2c;
  * The below compile option is used to enable gesture wakeup.
  * By default, this compile option is disabled.
  */
-//modify by Yang.XU for enable gesture wakeup macro. [2015.10.12][PR1063126]
-#define CONFIG_ENABLE_GESTURE_WAKEUP
+//#define CONFIG_ENABLE_GESTURE_WAKEUP
 
 // ------------------- #ifdef CONFIG_ENABLE_GESTURE_WAKEUP ------------------- //
 #ifdef CONFIG_ENABLE_GESTURE_WAKEUP
@@ -201,11 +196,9 @@ extern struct regulator *TPvcc_i2c;
 /*
  * Note.
  * The below compile option is used to enable phone level MP test handling.
- * By the way, phone level MP test is ready for MSG21XXA/MSG22XX/MSG26XXM.
- * But, phone level MP test for MSG28XX is not ready yet.
  * By default, this compile option is disabled.
  */
-#define CONFIG_ENABLE_ITO_MP_TEST
+//#define CONFIG_ENABLE_ITO_MP_TEST
 
 // ------------------- #ifdef CONFIG_ENABLE_ITO_MP_TEST ------------------- //
 #ifdef CONFIG_ENABLE_ITO_MP_TEST
@@ -272,9 +265,9 @@ extern struct regulator *TPvcc_i2c;
 /*
  * Note.
  * The below compile option is used to enable report rate calculation.
- * By default, this compile option is disabled.
+ * By default, this compile option is enabled.
  */
-//#define CONFIG_ENABLE_COUNT_REPORT_RATE
+#define CONFIG_ENABLE_COUNT_REPORT_RATE
 
 
 /*
@@ -307,7 +300,7 @@ extern struct regulator *TPvcc_i2c;
  * By the way, this feature is supported for MSG28XX only.
  * By default, this compile option is disabled.
  */
-//#define CONFIG_ENABLE_CODE_FOR_DEBUG
+#define CONFIG_ENABLE_CODE_FOR_DEBUG
 
 
 /*
@@ -315,10 +308,35 @@ extern struct regulator *TPvcc_i2c;
  * The below compile option is used to enable/disable Type A/Type B multi-touch protocol for reporting touch point/key to Linux input sub-system.
  * If this compile option is defined, Type B protocol is enabled.
  * Else, Type A protocol is enabled.
- * By the way, Type B protocol is supported for MSG26XXM/MSG28XX only, but is not supported for MSG21XXA/MSG22XX yet.
  * By default, this compile option is disabled.
  */
 //#define CONFIG_ENABLE_TYPE_B_PROTOCOL
+
+
+/*
+ * Note.
+ * The below compile option is used to enable force touch for reporting touch point to Linux input sub-system.
+ * By the way, force touch is supported for MSG28XX only, but is not supported for MSG26XXM/MSG21XXA/MSG22XX yet.
+ * By default, this compile option is disabled.
+ */
+//#define CONFIG_ENABLE_FORCE_TOUCH
+
+
+/*
+ * Note. 
+ * The below compile option is used to enable update firmware with 8 byte each time for MSG28XX.
+ * If this compile option is disabled, then update firmware with 128 byte each time for MSG28XX
+ * By default, this compile option is disabled.
+ */
+//#define CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_8_BYTE_EACH_TIME 
+
+/*
+ * Note. 
+ * The below compile option is used to enable update firmware with I2C data rate 400KHz for MSG22XX.
+ * If this compile option is disabled, then update firmware with I2C data rate less than 400KHz for MSG22XX
+ * By default, this compile option is disabled.
+ */
+//#define CONFIG_ENABLE_UPDATE_FIRMWARE_WITH_SUPPORT_I2C_SPEED_400K 
 
 
 /*--------------------------------------------------------------------------*/
@@ -352,8 +370,8 @@ extern struct regulator *TPvcc_i2c;
  * Note.
  * Please change the below touch screen resolution according to the touch panel that you are using.
  */
-#define TOUCH_SCREEN_X_MAX   (480) //LCD_WIDTH
-#define TOUCH_SCREEN_Y_MAX   (854) //LCD_HEIGHT
+#define TOUCH_SCREEN_X_MAX   (720)  //LCD_WIDTH
+#define TOUCH_SCREEN_Y_MAX   (1280) //LCD_HEIGHT
 /*
  * Note.
  * Please do not change the below setting.
@@ -483,40 +501,39 @@ extern struct regulator *TPvcc_i2c;
 #define FEATURE_FORCE_TO_UPDATE_FIRMWARE    0x0012
 
 
-/*--------------------------------------------------------------------------*/
-/* PREPROCESSOR MACRO DEFINITION                                            */
-/*--------------------------------------------------------------------------*/
-
-extern int tp_dbg;
-
-
 #define I2C_WRITE_COMMAND_DELAY_FOR_FIRMWARE   (20) // delay 20ms
 
 #define FIRMWARE_FILE_PATH_ON_SD_CARD      "/mnt/sdcard/msctp_update.bin"
 
 
+#define POWER_SUPPLY_BATTERY_STATUS_PATCH  "/sys/class/power_supply/battery/status"
+
+
 /*
  * Note.
  * The below flag is used to enable the output log mechanism while touch device driver is running.
- * If this flag is not defined, the function for output log will be disabled.
- * By default, this flag is enabled.
+ * If the debug log level is set as 0, the function for output log will be disabled.
+ * By default, the debug log level is set as 1.
  */
-#define CONFIG_ENABLE_TOUCH_DRIVER_DEBUG_LOG (1)   // 1 : Enable, 0 : Disable
+#define CONFIG_TOUCH_DRIVER_DEBUG_LOG_LEVEL (1)   // 1 : Default, 0 : No log. The bigger value, the more detailed log is output.
 
 /*=============================================================*/
 // EXTERN VARIABLE DECLARATION
 /*=============================================================*/
 
-extern u8 IS_TOUCH_DRIVER_DEBUG_LOG_ENABLED;
+extern u8 TOUCH_DRIVER_DEBUG_LOG_LEVEL;
 
 /*--------------------------------------------------------------------------*/
 /* PREPROCESSOR MACRO DEFINITION                                            */
 /*--------------------------------------------------------------------------*/
 
-#define DBG(fmt, arg...) do {\
-	                           if (tp_dbg == 1)\
-	                               printk(fmt, ##arg);\
-                         } while (0)
+
+#define DEBUG_LEVEL(level, fmt, arg...) do {\
+	                                           if (level <= TOUCH_DRIVER_DEBUG_LOG_LEVEL)\
+	                                               printk(fmt, ##arg);\
+                                        } while (0)
+
+#define DBG(fmt, arg...) DEBUG_LEVEL(0, fmt, ##arg) 
 
 
 /*--------------------------------------------------------------------------*/

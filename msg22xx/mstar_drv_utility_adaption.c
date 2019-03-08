@@ -164,6 +164,12 @@ void RegGetXBitValue(u16 nAddr, u8 * pRxData, u16 nLength, u16 nMaxI2cLengthLimi
 
     mutex_lock(&g_Mutex);
 
+#ifdef CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM
+#ifdef CONFIG_ENABLE_DMA_IIC
+    DmaReset();
+#endif //CONFIG_ENABLE_DMA_IIC
+#endif //CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM
+
     while(nLeft > 0)
     {
         if(nLeft >= nMaxI2cLengthLimit)

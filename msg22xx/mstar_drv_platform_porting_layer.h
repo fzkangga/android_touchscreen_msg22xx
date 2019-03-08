@@ -37,17 +37,29 @@
 
 #include <mach/board.h>
 #include <mach/gpio.h>
+//#include <soc/sprd/board.h>
+//#include <soc/sprd/gpio.h>
+//#include <soc/sprd/i2c-sprd.h>
+
+#include <linux/of_gpio.h>
 
 #ifdef CONFIG_ENABLE_REGULATOR_POWER_ON
 #include <mach/regulator.h>
+//#include <soc/sprd/regulator.h>
 #include <linux/regulator/consumer.h>
 #endif //CONFIG_ENABLE_REGULATOR_POWER_ON
 
 #ifdef CONFIG_ENABLE_PROXIMITY_DETECTION
-#include <linux/input/vir_ps.h> 
+//#include <linux/input/vir_ps.h> 
 #endif //CONFIG_ENABLE_PROXIMITY_DETECTION
 
+#ifdef CONFIG_ENABLE_TOUCH_PIN_CONTROL
+#include <linux/pinctrl/consumer.h>
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
+
 #elif defined(CONFIG_TOUCH_DRIVER_RUN_ON_QCOM_PLATFORM)
+
+#include <linux/of_gpio.h>
 
 #ifdef CONFIG_ENABLE_REGULATOR_POWER_ON
 #include <linux/regulator/consumer.h>
@@ -59,8 +71,13 @@
 #endif //CONFIG_ENABLE_NOTIFIER_FB
 
 #ifdef CONFIG_ENABLE_PROXIMITY_DETECTION
-#include <linux/input/vir_ps.h> 
+//#include <linux/input/vir_ps.h> 
+#include <linux/sensors.h>
 #endif //CONFIG_ENABLE_PROXIMITY_DETECTION
+
+#ifdef CONFIG_ENABLE_TOUCH_PIN_CONTROL
+#include <linux/pinctrl/consumer.h>
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
 
 #elif defined(CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM)
 
@@ -70,7 +87,6 @@
 #include <linux/wait.h>
 #include <linux/time.h>
 #include <linux/hwmsen_helper.h>
-//#include <linux/hw_module_info.h>
 
 #include <linux/namei.h>
 #include <linux/vmalloc.h>
@@ -103,9 +119,29 @@
  */
 #if defined(CONFIG_TOUCH_DRIVER_RUN_ON_SPRD_PLATFORM)
 
+#ifndef CONFIG_ENABLE_TOUCH_PIN_CONTROL
 // TODO : Please FAE colleague to confirm with customer device driver engineer about the value of RST and INT GPIO setting
 #define MS_TS_MSG_IC_GPIO_RST   GPIO_TOUCH_RESET //53 //35 
 #define MS_TS_MSG_IC_GPIO_INT   GPIO_TOUCH_IRQ   //52 //37
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
+
+#ifdef CONFIG_ENABLE_TOUCH_PIN_CONTROL
+#define PINCTRL_STATE_ACTIVE	"pmx_ts_active"
+#define PINCTRL_STATE_SUSPEND	"pmx_ts_suspend"
+#define PINCTRL_STATE_RELEASE	"pmx_ts_release"
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
+
+#ifdef CONFIG_ENABLE_PROXIMITY_DETECTION
+#define GTP_ADDR_LENGTH       (2)
+#define GTP_IOCTL_MAGIC 			(0x1C)
+#define LTR_IOCTL_GET_PFLAG  	_IOR(GTP_IOCTL_MAGIC, 1, int)
+#define LTR_IOCTL_GET_LFLAG  	_IOR(GTP_IOCTL_MAGIC, 2, int)
+#define LTR_IOCTL_SET_PFLAG  	_IOW(GTP_IOCTL_MAGIC, 3, int)
+#define LTR_IOCTL_SET_LFLAG  	_IOW(GTP_IOCTL_MAGIC, 4, int)
+#define LTR_IOCTL_GET_DATA  	_IOW(GTP_IOCTL_MAGIC, 5, unsigned char)
+#define GTP_IOCTL_PROX_ON 		_IO(GTP_IOCTL_MAGIC, 7)
+#define GTP_IOCTL_PROX_OFF		_IO(GTP_IOCTL_MAGIC, 8)
+#endif //CONFIG_ENABLE_PROXIMITY_DETECTION
 
 #ifdef CONFIG_TP_HAVE_KEY
 #define TOUCH_KEY_MENU (139) //229
@@ -118,17 +154,25 @@
 
 #elif defined(CONFIG_TOUCH_DRIVER_RUN_ON_QCOM_PLATFORM)
 
+#ifndef CONFIG_ENABLE_TOUCH_PIN_CONTROL
 // TODO : Please FAE colleague to confirm with customer device driver engineer about the value of RST and INT GPIO setting
 #define MS_TS_MSG_IC_GPIO_RST   0
 #define MS_TS_MSG_IC_GPIO_INT   1
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
+
+#ifdef CONFIG_ENABLE_TOUCH_PIN_CONTROL
+#define PINCTRL_STATE_ACTIVE	"pmx_ts_active"
+#define PINCTRL_STATE_SUSPEND	"pmx_ts_suspend"
+#define PINCTRL_STATE_RELEASE	"pmx_ts_release"
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
 
 #ifdef CONFIG_TP_HAVE_KEY
 #define TOUCH_KEY_MENU (139) //229
 #define TOUCH_KEY_HOME (172) //102
 #define TOUCH_KEY_BACK (158)
-//#define TOUCH_KEY_SEARCH (217)
+#define TOUCH_KEY_SEARCH (217)
 
-#define MAX_KEY_NUM (3)
+#define MAX_KEY_NUM (4)
 #endif //CONFIG_TP_HAVE_KEY
 
 #elif defined(CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM)
@@ -160,19 +204,20 @@ extern void DrvPlatformLyrSetIicDataRate(struct i2c_client *pClient, u32 nIicDat
 extern void DrvPlatformLyrTouchDevicePowerOff(void);
 extern void DrvPlatformLyrTouchDevicePowerOn(void);
 #ifdef CONFIG_ENABLE_REGULATOR_POWER_ON
-extern void DrvPlatformLyrTouchDeviceRegulatorPowerOn(void);
+extern void DrvPlatformLyrTouchDeviceRegulatorPowerOn(bool nFlag);
 #endif //CONFIG_ENABLE_REGULATOR_POWER_ON
-extern int DrvPlatformLyrTouchDeviceVoltageInit(struct i2c_client *client,bool on);//zxzadd
-extern int DrvPlatformLyrTouchDeviceVoltageControl(bool on);//zxzadd
 extern void DrvPlatformLyrTouchDeviceRegisterEarlySuspend(void);
 extern s32 DrvPlatformLyrTouchDeviceRegisterFingerTouchInterruptHandler(void);
 extern s32 DrvPlatformLyrTouchDeviceRemove(struct i2c_client *pClient);
-extern s32 DrvPlatformLyrTouchDeviceRequestGPIO(void);        
+extern s32 DrvPlatformLyrTouchDeviceRequestGPIO(struct i2c_client *pClient);        
 extern void DrvPlatformLyrTouchDeviceResetHw(void);
+
 #ifdef CONFIG_ENABLE_PROXIMITY_DETECTION
 extern int DrvPlatformLyrGetTpPsData(void);
-#if defined(CONFIG_TOUCH_DRIVER_RUN_ON_SPRD_PLATFORM) || defined(CONFIG_TOUCH_DRIVER_RUN_ON_QCOM_PLATFORM)
+#if defined(CONFIG_TOUCH_DRIVER_RUN_ON_SPRD_PLATFORM)
 extern void DrvPlatformLyrTpPsEnable(int nEnable);
+#elif defined(CONFIG_TOUCH_DRIVER_RUN_ON_QCOM_PLATFORM)
+extern int DrvPlatformLyrTpPsEnable(struct sensors_classdev* pProximityCdev, unsigned int nEnable);
 #elif defined(CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM)
 extern int DrvPlatformLyrTpPsOperate(void* pSelf, u32 nCommand, void* pBuffIn, int nSizeIn, void* pBuffOut, int nSizeOut, int* pActualOut);
 #endif
