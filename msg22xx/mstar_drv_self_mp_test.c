@@ -38,6 +38,7 @@
 #ifdef CONFIG_ENABLE_ITO_MP_TEST
 
 // Modify.
+/*
 #include "msg21xxa_open_test_ANA1_X.h"
 #include "msg21xxa_open_test_ANA2_X.h"
 #include "msg21xxa_open_test_ANA1_B_X.h"
@@ -64,31 +65,31 @@
 #ifdef CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE  
 #include "msg21xxa_short_test_ANA4_Y.h"
 #endif //CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE
-
+*/
 // Modify.
-#include "msg22xx_open_test_RIU1_X.h"
-#include "msg22xx_open_test_RIU2_X.h"
-#include "msg22xx_open_test_RIU3_X.h"
-
+#include "msg22xx_open_test_RIU1_YEJI.h"
+#include "msg22xx_open_test_RIU2_YEJI.h"
+#include "msg22xx_open_test_RIU3_YEJI.h"
+/*
 #include "msg22xx_open_test_RIU1_Y.h"
 #include "msg22xx_open_test_RIU2_Y.h"
 #include "msg22xx_open_test_RIU3_Y.h"
-
+*/
 // Modify.
-#include "msg22xx_short_test_RIU1_X.h"
-#include "msg22xx_short_test_RIU2_X.h"
-#include "msg22xx_short_test_RIU3_X.h"
+#include "msg22xx_short_test_RIU1_YEJI.h"
+#include "msg22xx_short_test_RIU2_YEJI.h"
+#include "msg22xx_short_test_RIU3_YEJI.h"
 #ifdef CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE  
-#include "msg22xx_short_test_RIU4_X.h"
+#include "msg22xx_short_test_RIU4_YEJI.h"
 #endif //CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE
-
+/*
 #include "msg22xx_short_test_RIU1_Y.h"
 #include "msg22xx_short_test_RIU2_Y.h"
 #include "msg22xx_short_test_RIU3_Y.h"
 #ifdef CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE  
 #include "msg22xx_short_test_RIU4_Y.h"
 #endif //CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE
-
+*/
 
 /*=============================================================*/
 // PREPROCESSOR CONSTANT DEFINITION
@@ -407,7 +408,7 @@ static u16 _DrvMpTestItoTestChooseTpType(void)
     {
         if (g_ChipType == CHIP_TYPE_MSG21XXA)   
         {
-            _gOpen1 = MSG21XXA_open_1_X;
+            /*_gOpen1 = MSG21XXA_open_1_X;
             _gOpen1B = MSG21XXA_open_1B_X;
             _gOpen2 = MSG21XXA_open_2_X;
             _gOpen2B = MSG21XXA_open_2B_X;
@@ -450,62 +451,62 @@ static u16 _DrvMpTestItoTestChooseTpType(void)
             _gItoTestKeyNum = MSG21XXA_NUM_KEY_X;
             _gItoTestDummyNum = MSG21XXA_NUM_DUMMY_X;
             _gItoTestTriangleNum = MSG21XXA_NUM_SENSOR_X;
-            _gIsEnable2R = MSG21XXA_ENABLE_2R_X;
+            _gIsEnable2R = MSG21XXA_ENABLE_2R_X;*/
         }
         else if (g_ChipType == CHIP_TYPE_MSG22XX)   
         {
-            _gOpenRIU1 = MSG22XX_open_1_X;
-            _gOpenRIU2 = MSG22XX_open_2_X;
-            _gOpenRIU3 = MSG22XX_open_3_X;
+            _gOpenRIU1 = MSG22XX_open_1_YEJI;
+            _gOpenRIU2 = MSG22XX_open_2_YEJI;
+            _gOpenRIU3 = MSG22XX_open_3_YEJI;
 
-            _gShort_RIU1 = MSG22XX_short_1_X;
-            _gShort_RIU2 = MSG22XX_short_2_X;
-            _gShort_RIU3 = MSG22XX_short_3_X;
+            _gShort_RIU1 = MSG22XX_short_1_YEJI;
+            _gShort_RIU2 = MSG22XX_short_2_YEJI;
+            _gShort_RIU3 = MSG22XX_short_3_YEJI;
 
-            _gOpenSubFrameNum1 = MSG22XX_NUM_OPEN_1_SENSOR_X;
-            _gOpenSubFrameNum2 = MSG22XX_NUM_OPEN_2_SENSOR_X;
-            _gOpenSubFrameNum3 = MSG22XX_NUM_OPEN_3_SENSOR_X;
-            _gShortSubFrameNum1 = MSG22XX_NUM_SHORT_1_SENSOR_X;
-            _gShortSubFrameNum2 = MSG22XX_NUM_SHORT_2_SENSOR_X;
-            _gShortSubFrameNum3 = MSG22XX_NUM_SHORT_3_SENSOR_X;
+            _gOpenSubFrameNum1 = MSG22XX_NUM_OPEN_1_SENSOR_YEJI;
+            _gOpenSubFrameNum2 = MSG22XX_NUM_OPEN_2_SENSOR_YEJI;
+            _gOpenSubFrameNum3 = MSG22XX_NUM_OPEN_3_SENSOR_YEJI;
+            _gShortSubFrameNum1 = MSG22XX_NUM_SHORT_1_SENSOR_YEJI;
+            _gShortSubFrameNum2 = MSG22XX_NUM_SHORT_2_SENSOR_YEJI;
+            _gShortSubFrameNum3 = MSG22XX_NUM_SHORT_3_SENSOR_YEJI;
 
 #ifdef CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE
-            _gShort_RIU4 = MSG22XX_short_4_X;
-            _gShortSubFrameNum4 = MSG22XX_NUM_SHORT_4_SENSOR_X;
+            _gShort_RIU4 = MSG22XX_short_4_YEJI;
+            _gShortSubFrameNum4 = MSG22XX_NUM_SHORT_4_SENSOR_YEJI;
 #endif //CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE
 
-            _gMAP1 = MSG22XX_MAP1_X;
-            _gMAP2 = MSG22XX_MAP2_X;
-            _gMAP3 = MSG22XX_MAP3_X;
-            _gMAP40_1 = MSG22XX_MAP40_1_X;
-            _gMAP40_2 = MSG22XX_MAP40_2_X;
-            _gMAP41_1 = MSG22XX_MAP41_1_X;
-            _gMAP41_2 = MSG22XX_MAP41_2_X;
+            _gMAP1 = MSG22XX_MAP1_YEJI;
+            _gMAP2 = MSG22XX_MAP2_YEJI;
+            _gMAP3 = MSG22XX_MAP3_YEJI;
+            _gMAP40_1 = MSG22XX_MAP40_1_YEJI;
+            _gMAP40_2 = MSG22XX_MAP40_2_YEJI;
+            _gMAP41_1 = MSG22XX_MAP41_1_YEJI;
+            _gMAP41_2 = MSG22XX_MAP41_2_YEJI;
 
-            _gSHORT_MAP1 = MSG22XX_SHORT_MAP1_X;
-            _gSHORT_MAP2 = MSG22XX_SHORT_MAP2_X;
-            _gSHORT_MAP3 = MSG22XX_SHORT_MAP3_X;
+            _gSHORT_MAP1 = MSG22XX_SHORT_MAP1_YEJI;
+            _gSHORT_MAP2 = MSG22XX_SHORT_MAP2_YEJI;
+            _gSHORT_MAP3 = MSG22XX_SHORT_MAP3_YEJI;
 
 #ifdef CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE       
-            _gMAP40_3 = MSG22XX_MAP40_3_X;
-            _gMAP40_4 = MSG22XX_MAP40_4_X;
-            _gMAP41_3 = MSG22XX_MAP41_3_X;
-            _gMAP41_4 = MSG22XX_MAP41_4_X;
+            _gMAP40_3 = MSG22XX_MAP40_3_YEJI;
+            _gMAP40_4 = MSG22XX_MAP40_4_YEJI;
+            _gMAP41_3 = MSG22XX_MAP41_3_YEJI;
+            _gMAP41_4 = MSG22XX_MAP41_4_YEJI;
 
-            _gSHORT_MAP4 = MSG22XX_SHORT_MAP4_X;
+            _gSHORT_MAP4 = MSG22XX_SHORT_MAP4_YEJI;
 #endif //CONFIG_ENABLE_MP_TEST_ITEM_FOR_2R_TRIANGLE
  
-            _gItoTestKeyNum = MSG22XX_NUM_KEY_X;
-            _gItoTestDummyNum = MSG22XX_NUM_DUMMY_X;
-            _gItoTestTriangleNum = MSG22XX_NUM_SENSOR_X;
-            _gIsEnable2R = MSG22XX_ENABLE_2R_X;
+            _gItoTestKeyNum = MSG22XX_NUM_KEY_YEJI;
+            _gItoTestDummyNum = MSG22XX_NUM_DUMMY_YEJI;
+            _gItoTestTriangleNum = MSG22XX_NUM_SENSOR_YEJI;
+            _gIsEnable2R = MSG22XX_ENABLE_2R_YEJI;
         }
     }
     else if (TP_OF_Y == nTpType) // Modify. 
     {
         if (g_ChipType == CHIP_TYPE_MSG21XXA)   
         {
-            _gOpen1 = MSG21XXA_open_1_Y;
+            /*_gOpen1 = MSG21XXA_open_1_Y;
             _gOpen1B = MSG21XXA_open_1B_Y;
             _gOpen2 = MSG21XXA_open_2_Y;
             _gOpen2B = MSG21XXA_open_2B_Y;
@@ -548,11 +549,11 @@ static u16 _DrvMpTestItoTestChooseTpType(void)
              _gItoTestKeyNum = MSG21XXA_NUM_KEY_Y;
              _gItoTestDummyNum = MSG21XXA_NUM_DUMMY_Y;
              _gItoTestTriangleNum = MSG21XXA_NUM_SENSOR_Y;
-             _gIsEnable2R = MSG21XXA_ENABLE_2R_Y;
+             _gIsEnable2R = MSG21XXA_ENABLE_2R_Y;*/
         }
         else if (g_ChipType == CHIP_TYPE_MSG22XX)   
         {
-             _gOpenRIU1 = MSG22XX_open_1_Y;
+             /*_gOpenRIU1 = MSG22XX_open_1_Y;
              _gOpenRIU2 = MSG22XX_open_2_Y;
              _gOpenRIU3 = MSG22XX_open_3_Y;
 
@@ -596,7 +597,7 @@ static u16 _DrvMpTestItoTestChooseTpType(void)
              _gItoTestKeyNum = MSG22XX_NUM_KEY_Y;
              _gItoTestDummyNum = MSG22XX_NUM_DUMMY_Y;
              _gItoTestTriangleNum = MSG22XX_NUM_SENSOR_Y;
-             _gIsEnable2R = MSG22XX_ENABLE_2R_Y;
+             _gIsEnable2R = MSG22XX_ENABLE_2R_Y;*/
         }
     }
     else

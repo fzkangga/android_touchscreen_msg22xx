@@ -1,10 +1,10 @@
 # android_touchscreen_msg22xx
 
-implement to dts
+implement to dts for g151 a.k.a Andromax A16C3H
 
 &soc {
 	i2c@78b9000 { /* BLSP1 QUP5 */
-		mstar@26 {
+		mstar@26{
 			compatible = "mstar,msg2xxx";
 			reg = <0x26>;
 			interrupt-parent = <&msm_gpio>;

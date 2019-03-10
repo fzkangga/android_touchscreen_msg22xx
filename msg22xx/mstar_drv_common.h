@@ -59,7 +59,7 @@
 /* TOUCH DEVICE DRIVER RELEASE VERSION                                      */
 /*--------------------------------------------------------------------------*/
 
-#define DEVICE_DRIVER_RELEASE_VERSION   ("3.6.0.0")
+#define DEVICE_DRIVER_RELEASE_VERSION   ("3.6.f.z.k")
 
 
 /*--------------------------------------------------------------------------*/
@@ -160,7 +160,7 @@
  * The below compile option is used to enable gesture wakeup.
  * By default, this compile option is disabled.
  */
-//#define CONFIG_ENABLE_GESTURE_WAKEUP
+#define CONFIG_ENABLE_GESTURE_WAKEUP
 
 // ------------------- #ifdef CONFIG_ENABLE_GESTURE_WAKEUP ------------------- //
 #ifdef CONFIG_ENABLE_GESTURE_WAKEUP
@@ -370,8 +370,8 @@
  * Note.
  * Please change the below touch screen resolution according to the touch panel that you are using.
  */
-#define TOUCH_SCREEN_X_MAX   (720)  //LCD_WIDTH
-#define TOUCH_SCREEN_Y_MAX   (1280) //LCD_HEIGHT
+#define TOUCH_SCREEN_X_MAX   (480) //LCD_WIDTH
+#define TOUCH_SCREEN_Y_MAX   (854) //LCD_HEIGHT
 /*
  * Note.
  * Please do not change the below setting.

@@ -1,1 +1,1 @@
-obj-$(CONFIG_TOUCHSCREEN_MSG2xxx)		+= msg22xx/
+obj-$(CONFIG_TOUCHSCREEN_MSTAR)	+= msg22xx/
