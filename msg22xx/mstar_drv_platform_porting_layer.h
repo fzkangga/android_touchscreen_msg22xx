@@ -37,6 +37,7 @@
 
 #include <mach/board.h>
 #include <mach/gpio.h>
+#include <linux/of_gpio.h>
 
 #ifdef CONFIG_ENABLE_REGULATOR_POWER_ON
 #include <mach/regulator.h>
@@ -47,7 +48,13 @@
 #include <linux/input/vir_ps.h> 
 #endif //CONFIG_ENABLE_PROXIMITY_DETECTION
 
+#ifdef CONFIG_ENABLE_TOUCH_PIN_CONTROL
+#include <linux/pinctrl/consumer.h>
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
+
 #elif defined(CONFIG_TOUCH_DRIVER_RUN_ON_QCOM_PLATFORM)
+
+#include <linux/of_gpio.h>
 
 #ifdef CONFIG_ENABLE_REGULATOR_POWER_ON
 #include <linux/regulator/consumer.h>
@@ -61,6 +68,10 @@
 #ifdef CONFIG_ENABLE_PROXIMITY_DETECTION
 #include <linux/input/vir_ps.h> 
 #endif //CONFIG_ENABLE_PROXIMITY_DETECTION
+
+#ifdef CONFIG_ENABLE_TOUCH_PIN_CONTROL
+#include <linux/pinctrl/consumer.h>
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
 
 #elif defined(CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM)
 
@@ -103,14 +114,22 @@
  */
 #if defined(CONFIG_TOUCH_DRIVER_RUN_ON_SPRD_PLATFORM)
 
+#ifndef CONFIG_ENABLE_TOUCH_PIN_CONTROL
 // TODO : Please FAE colleague to confirm with customer device driver engineer about the value of RST and INT GPIO setting
 #define MS_TS_MSG_IC_GPIO_RST   GPIO_TOUCH_RESET //53 //35 
 #define MS_TS_MSG_IC_GPIO_INT   GPIO_TOUCH_IRQ   //52 //37
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
+
+#ifdef CONFIG_ENABLE_TOUCH_PIN_CONTROL
+#define PINCTRL_STATE_ACTIVE	"pmx_ts_active"
+#define PINCTRL_STATE_SUSPEND	"pmx_ts_suspend"
+#define PINCTRL_STATE_RELEASE	"pmx_ts_release"
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
 
 #ifdef CONFIG_TP_HAVE_KEY
-#define TOUCH_KEY_MENU (139) //229
-#define TOUCH_KEY_HOME (172) //102
-#define TOUCH_KEY_BACK (158)
+#define TOUCH_KEY_MENU (158) //229
+#define TOUCH_KEY_HOME (139) //102
+#define TOUCH_KEY_BACK (172)
 #define TOUCH_KEY_SEARCH (217)
 
 #define MAX_KEY_NUM (4)
@@ -118,14 +137,22 @@
 
 #elif defined(CONFIG_TOUCH_DRIVER_RUN_ON_QCOM_PLATFORM)
 
+#ifndef CONFIG_ENABLE_TOUCH_PIN_CONTROL
 // TODO : Please FAE colleague to confirm with customer device driver engineer about the value of RST and INT GPIO setting
 #define MS_TS_MSG_IC_GPIO_RST   0
 #define MS_TS_MSG_IC_GPIO_INT   1
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
+
+#ifdef CONFIG_ENABLE_TOUCH_PIN_CONTROL
+#define PINCTRL_STATE_ACTIVE	"pmx_ts_active"
+#define PINCTRL_STATE_SUSPEND	"pmx_ts_suspend"
+#define PINCTRL_STATE_RELEASE	"pmx_ts_release"
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
 
 #ifdef CONFIG_TP_HAVE_KEY
-#define TOUCH_KEY_MENU (139) //229
-#define TOUCH_KEY_HOME (172) //102
-#define TOUCH_KEY_BACK (158)
+#define TOUCH_KEY_MENU (158) //229
+#define TOUCH_KEY_HOME (139) //102
+#define TOUCH_KEY_BACK (172)
 //#define TOUCH_KEY_SEARCH (217)
 
 #define MAX_KEY_NUM (3)
@@ -167,7 +194,7 @@ extern int DrvPlatformLyrTouchDeviceVoltageControl(bool on);//zxzadd
 extern void DrvPlatformLyrTouchDeviceRegisterEarlySuspend(void);
 extern s32 DrvPlatformLyrTouchDeviceRegisterFingerTouchInterruptHandler(void);
 extern s32 DrvPlatformLyrTouchDeviceRemove(struct i2c_client *pClient);
-extern s32 DrvPlatformLyrTouchDeviceRequestGPIO(void);        
+extern s32 DrvPlatformLyrTouchDeviceRequestGPIO(struct i2c_client *pClient);        
 extern void DrvPlatformLyrTouchDeviceResetHw(void);
 #ifdef CONFIG_ENABLE_PROXIMITY_DETECTION
 extern int DrvPlatformLyrGetTpPsData(void);

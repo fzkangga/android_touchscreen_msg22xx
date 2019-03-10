@@ -469,7 +469,6 @@ static int fb_notifier_callback(struct notifier_block *self,
 }
 #endif
 #endif
-extern int msg2638_pinctrl_init(struct i2c_client *pClient);
 /* probe function is used for matching and initializing input device */
 s32 /*__devinit*/ MsDrvInterfaceTouchDeviceProbe(struct i2c_client *pClient, const struct i2c_device_id *pDeviceId)
 {
@@ -479,17 +478,7 @@ s32 /*__devinit*/ MsDrvInterfaceTouchDeviceProbe(struct i2c_client *pClient, con
     DrvPlatformLyrTouchDeviceVoltageInit(pClient,true);//zxzadd
     DrvPlatformLyrTouchDeviceVoltageControl(true);//zxzadd
 
-    nRetVal = msg2638_pinctrl_init(pClient);
-	if (nRetVal < 0) {
-		DBG("MIKE: msg2638_pinctrl_init err : %d\n", nRetVal);
-		return nRetVal;
-	}
-
-    nRetVal = DrvPlatformLyrTouchDeviceRequestGPIO();
-	if (nRetVal < 0) {
-		DBG("MIKE: DrvPlatformLyrTouchDeviceRequestGPIO err : %d\n", nRetVal);
-		return nRetVal;
-	}
+    DrvPlatformLyrTouchDeviceRequestGPIO(pClient);
 
 #ifdef CONFIG_ENABLE_REGULATOR_POWER_ON
     DrvPlatformLyrTouchDeviceRegulatorPowerOn();

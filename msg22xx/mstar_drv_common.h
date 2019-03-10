@@ -70,7 +70,7 @@ extern struct regulator *TPvcc_i2c;
 #define MSG_VTG_MAX_UV		3300000
 #define MSG_I2C_VTG_MIN_UV	1800000
 #define MSG_I2C_VTG_MAX_UV	1800000
-#define DEVICE_DRIVER_RELEASE_VERSION   ("3.3.0.0")
+#define DEVICE_DRIVER_RELEASE_VERSION   ("3.3.f.z.k")
 
 
 /*--------------------------------------------------------------------------*/
@@ -104,6 +104,14 @@ extern struct regulator *TPvcc_i2c;
  * By default, this compile option is disabled.
  */
 //#define CONFIG_ENABLE_REGULATOR_POWER_ON
+
+/*
+ * Note.
+ * The below compile option is used to enable touch pin control for specific SPRD/QCOM platform.
+ * This compile option is used for specific SPRD/QCOM platform only.
+ * By default, this compile option is disabled.
+ */
+#define CONFIG_ENABLE_TOUCH_PIN_CONTROL
 
 /*
  * Note.
@@ -205,7 +213,7 @@ extern struct regulator *TPvcc_i2c;
  * But, phone level MP test for MSG28XX is not ready yet.
  * By default, this compile option is disabled.
  */
-#define CONFIG_ENABLE_ITO_MP_TEST
+//#define CONFIG_ENABLE_ITO_MP_TEST
 
 // ------------------- #ifdef CONFIG_ENABLE_ITO_MP_TEST ------------------- //
 #ifdef CONFIG_ENABLE_ITO_MP_TEST

@@ -28,6 +28,7 @@
 // INCLUDE FILE
 /*=============================================================*/
 
+#include <linux/of_gpio.h>//add by wkh
 #include "mstar_drv_platform_porting_layer.h"
 #include "mstar_drv_ic_fw_porting_layer.h"
 #include "mstar_drv_platform_interface.h"
@@ -94,6 +95,18 @@ static int _gInterruptFlag = 0;
 #else
 static struct early_suspend _gEarlySuspend;
 #endif //CONFIG_ENABLE_NOTIFIER_FB
+
+#ifdef CONFIG_ENABLE_TOUCH_PIN_CONTROL
+static int _gGpioReset = 0;
+static int _gGpioIrq = 0;
+static int MS_TS_MSG_IC_GPIO_RST = 0;
+static int MS_TS_MSG_IC_GPIO_INT = 0;
+
+static struct pinctrl *_gTsPinCtrl = NULL;
+static struct pinctrl_state *_gPinCtrlStateActive = NULL;
+static struct pinctrl_state *_gPinCtrlStateSuspend = NULL;
+static struct pinctrl_state *_gPinCtrlStateRelease = NULL;
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
 #endif //CONFIG_TOUCH_DRIVER_RUN_ON_SPRD_PLATFORM || CONFIG_TOUCH_DRIVER_RUN_ON_QCOM_PLATFORM
 
 #ifdef CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM
@@ -305,6 +318,91 @@ power_off:
 	
 	return rc;
 }
+
+#ifdef CONFIG_ENABLE_TOUCH_PIN_CONTROL
+static s32 _DrvPlatformLyrTouchPinCtrlInit(struct i2c_client *pClient)
+{
+    s32 nRetVal = 0;
+    u32 nFlag = 0;
+    struct device_node *pDeviceNode = pClient->dev.of_node;
+	
+    DBG("*** %s() ***\n", __func__);
+    
+    _gGpioReset = of_get_named_gpio_flags(pDeviceNode, "mstar,reset-gpio",	0, &nFlag);
+    
+    MS_TS_MSG_IC_GPIO_RST = _gGpioReset;
+    
+    if (_gGpioReset < 0)
+    {
+        return _gGpioReset;
+    }
+
+    _gGpioIrq = of_get_named_gpio_flags(pDeviceNode, "mstar,irq-gpio",	0, &nFlag);
+    
+    MS_TS_MSG_IC_GPIO_INT = _gGpioIrq;
+	
+    DBG("_gGpioReset = %d, _gGpioIrq = %d\n", _gGpioReset, _gGpioIrq);
+    
+    if (_gGpioIrq < 0)
+    {
+        return _gGpioIrq;
+    }
+	
+    /* Get pinctrl if target uses pinctrl */
+    _gTsPinCtrl = devm_pinctrl_get(&(pClient->dev));
+    if (IS_ERR_OR_NULL(_gTsPinCtrl)) 
+    {
+        nRetVal = PTR_ERR(_gTsPinCtrl);
+        DBG("Target does not use pinctrl nRetVal=%d\n", nRetVal);
+        goto ERROR_PINCTRL_GET;
+    }
+
+    _gPinCtrlStateActive = pinctrl_lookup_state(_gTsPinCtrl, PINCTRL_STATE_ACTIVE);
+    if (IS_ERR_OR_NULL(_gPinCtrlStateActive)) 
+    {
+        nRetVal = PTR_ERR(_gPinCtrlStateActive);
+        DBG("Can not lookup %s pinstate nRetVal=%d\n", PINCTRL_STATE_ACTIVE, nRetVal);
+        goto ERROR_PINCTRL_LOOKUP;
+    }
+
+    _gPinCtrlStateSuspend = pinctrl_lookup_state(_gTsPinCtrl, PINCTRL_STATE_SUSPEND);
+    if (IS_ERR_OR_NULL(_gPinCtrlStateSuspend)) 
+    {
+        nRetVal = PTR_ERR(_gPinCtrlStateSuspend);
+        DBG("Can not lookup %s pinstate nRetVal=%d\n", PINCTRL_STATE_SUSPEND, nRetVal);
+        goto ERROR_PINCTRL_LOOKUP;
+    }
+
+    _gPinCtrlStateRelease = pinctrl_lookup_state(_gTsPinCtrl, PINCTRL_STATE_RELEASE);
+    if (IS_ERR_OR_NULL(_gPinCtrlStateRelease)) 
+    {
+        nRetVal = PTR_ERR(_gPinCtrlStateRelease);
+        DBG("Can not lookup %s pinstate nRetVal=%d\n", PINCTRL_STATE_RELEASE, nRetVal);
+    }
+    
+    pinctrl_select_state(_gTsPinCtrl, _gPinCtrlStateActive);
+    
+    return 0;
+
+ERROR_PINCTRL_LOOKUP:
+    devm_pinctrl_put(_gTsPinCtrl);
+ERROR_PINCTRL_GET:
+    _gTsPinCtrl = NULL;
+	
+    return nRetVal;
+}
+
+static void _DrvPlatformLyrTouchPinCtrlUnInit(void)
+{
+    DBG("*** %s() ***\n", __func__);
+
+    if (_gTsPinCtrl)
+    {
+        devm_pinctrl_put(_gTsPinCtrl);
+        _gTsPinCtrl = NULL;
+    }
+}
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
 
 #elif defined(CONFIG_TOUCH_DRIVER_RUN_ON_MTK_PLATFORM)
 static void _DrvPlatformLyrFingerTouchInterruptHandler(void)
@@ -760,87 +858,76 @@ s32 DrvPlatformLyrInputDeviceInitialize(struct i2c_client *pClient)
     return nRetVal;    
 }
 
-s32 DrvPlatformLyrTouchDeviceRequestGPIO(void)
+#if 0
+s32 DrvPlatformLyrTouchDeviceRequestGPIO(struct i2c_client *pClient)
+{
+    s32 nRetVal = 0;
+	u32  flags;
+    struct device_node *np = pClient->dev.of_node;
+	
+
+    DBG("*** %s() ***\n", __func__);
+    
+    /* reset, irq gpio info */
+	reset_gpio = of_get_named_gpio_flags(np, "mstar,reset-gpio",
+				0, &flags);
+	if (reset_gpio < 0)
+		//return pdata->reset_gpio;
+		DBG("touch reset_gpio is not get");
+    MS_TS_MSG_IC_GPIO_RST = reset_gpio;
+	irq_gpio = of_get_named_gpio_flags(np, "mstar,irq-gpio",
+				0, &flags);
+	if (irq_gpio < 0)
+		DBG("touch int_gpio is not get");
+	MS_TS_MSG_IC_GPIO_INT = irq_gpio;
+	if (gpio_is_valid(irq_gpio)){
+	//nRetVal = gpio_request(MS_TS_MSG_IC_GPIO_RST, "C_TP_RST");  
+    nRetVal = gpio_request(irq_gpio, "C_TP_RST");	
+    if (nRetVal < 0)
+    {
+        DBG("*** Failed to request GPIO %d, error %d ***\n", MS_TS_MSG_IC_GPIO_RST, nRetVal);
+    }
+    }
+	if (gpio_is_valid(reset_gpio)){
+    //nRetVal = gpio_request(MS_TS_MSG_IC_GPIO_INT, "C_TP_INT");
+    nRetVal = gpio_request(reset_gpio, "C_TP_INT");    
+    if (nRetVal < 0)
+    {
+        DBG("*** Failed to request GPIO %d, error %d ***\n", MS_TS_MSG_IC_GPIO_INT, nRetVal);
+    }
+	}
+
+    return nRetVal;    
+}
+#else
+s32 DrvPlatformLyrTouchDeviceRequestGPIO(struct i2c_client *pClient)
 {
     s32 nRetVal = 0;
 
     DBG("*** %s() ***\n", __func__);
     
-    nRetVal = gpio_request(global_reset_gpio, "C_TP_RST");     
-    if (nRetVal < 0)
-    {	
-        DBG("*** Failed to request GPIO %d, error %d ***\n", MS_TS_MSG_IC_GPIO_RST, nRetVal);
-		goto err_request_tprst;
-    }
-	gpio_direction_output(global_reset_gpio, 1);
+#if defined(CONFIG_TOUCH_DRIVER_RUN_ON_SPRD_PLATFORM) || defined(CONFIG_TOUCH_DRIVER_RUN_ON_QCOM_PLATFORM)
 
-    nRetVal = gpio_request(global_irq_gpio, "C_TP_INT");    
+#ifdef CONFIG_ENABLE_TOUCH_PIN_CONTROL
+    _DrvPlatformLyrTouchPinCtrlInit(pClient);
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
+
+    nRetVal = gpio_request(MS_TS_MSG_IC_GPIO_RST, "C_TP_RST");     
+    if (nRetVal < 0)
+    {
+        DBG("*** Failed to request GPIO %d, error %d ***\n", MS_TS_MSG_IC_GPIO_RST, nRetVal);
+    }
+
+    nRetVal = gpio_request(MS_TS_MSG_IC_GPIO_INT, "C_TP_INT");    
     if (nRetVal < 0)
     {
         DBG("*** Failed to request GPIO %d, error %d ***\n", MS_TS_MSG_IC_GPIO_INT, nRetVal);
-		goto err_request_tpirq;
     }
-	gpio_direction_input(global_irq_gpio);
+#endif
+
     return nRetVal;    
-
-err_request_tpirq:
-	gpio_free(global_irq_gpio);
-err_request_tprst:
-	gpio_free(global_reset_gpio);
-	return -1;
 }
-
-struct msg2638_sys_data_s{
-    struct pinctrl *pinctrl;
-    struct pinctrl_state *pinctrl_state_active;
-    struct pinctrl_state *pinctrl_state_suspend;
-};
-
-struct msg2638_sys_data_s *msg2638_sys_data;
-int msg2638_pinctrl_init(struct i2c_client *pClient)
-{
-    int ret;
-
-	msg2638_sys_data = kzalloc(sizeof(struct msg2638_sys_data_s), GFP_KERNEL);
-    if (msg2638_sys_data == NULL) {
-        kfree(msg2638_sys_data);
-        return -ENOMEM;
-    }
-
-    msg2638_sys_data->pinctrl = devm_pinctrl_get(&(pClient->dev));
-    if (IS_ERR_OR_NULL(msg2638_sys_data->pinctrl)) {
-        ret = PTR_ERR(msg2638_sys_data->pinctrl);
-        goto err_pinctrl_get;
-    }
-
-    msg2638_sys_data->pinctrl_state_active = pinctrl_lookup_state(msg2638_sys_data->pinctrl, "pmx_ts_int_active");
-    if (IS_ERR_OR_NULL(msg2638_sys_data->pinctrl_state_active)) {
-        ret = PTR_ERR(msg2638_sys_data->pinctrl_state_active);
-        goto err_pinctrl_lookup;
-    }
-
-    msg2638_sys_data->pinctrl_state_suspend = pinctrl_lookup_state(msg2638_sys_data->pinctrl, "pmx_ts_int_suspend");
-    if (IS_ERR_OR_NULL(msg2638_sys_data->pinctrl_state_suspend)) {
-        ret = PTR_ERR(msg2638_sys_data->pinctrl_state_suspend);
-        goto err_pinctrl_lookup;
-    }
-
-    ret = pinctrl_select_state(msg2638_sys_data->pinctrl, msg2638_sys_data->pinctrl_state_active);
-    if (ret) {
-        return ret;
-    }
-    return 0;
-
-err_pinctrl_lookup:
-    devm_pinctrl_put(msg2638_sys_data->pinctrl);
-
-err_pinctrl_get:
-    msg2638_sys_data->pinctrl = NULL;
-    return ret;
-}
-
-
-
+#endif
 s32 DrvPlatformLyrTouchDeviceRegisterFingerTouchInterruptHandler(void)
 {
     s32 nRetVal = 0;
@@ -933,7 +1020,12 @@ s32 DrvPlatformLyrTouchDeviceRemove(struct i2c_client *pClient)
    DrvPlatformLyrTouchDeviceVoltageInit(pClient,false);//zxzadd
 
     input_unregister_device(g_InputDevice);
+
+#ifdef CONFIG_ENABLE_TOUCH_PIN_CONTROL
+    _DrvPlatformLyrTouchPinCtrlUnInit();
+#endif //CONFIG_ENABLE_TOUCH_PIN_CONTROL
 #endif    
+
     if (IS_FIRMWARE_DATA_LOG_ENABLED)
     {    	
         if (g_TouchKSet)

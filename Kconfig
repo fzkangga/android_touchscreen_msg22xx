@@ -1,4 +1,1 @@
-#[PLATFORM]-Add-BEGIN by mike.li for msg2238 driver code.[2015.03.06]
 source "drivers/input/touchscreen/msg22xx/Kconfig"
-#[PLATFORM]-Add-END by mike.li
-
