@@ -165,7 +165,7 @@ u32 g_LogGestureInfor[GESTURE_WAKEUP_INFORMATION_PACKET_LENGTH] = {0};
 #ifdef CONFIG_SUPPORT_64_TYPES_GESTURE_WAKEUP_MODE // support at most 64 types of gesture wakeup mode
 u32 g_GestureWakeupMode[2] = {0xFFFFFFFF, 0xFFFFFFFF};
 #else                                              // support at most 16 types of gesture wakeup mode
-u32 g_GestureWakeupMode[2] = {0x0000FFFF, 0x00000000};
+u32 g_GestureWakeupMode[2] = {0x00000000, 0x00000000};
 #endif //CONFIG_SUPPORT_64_TYPES_GESTURE_WAKEUP_MODE
 
 u8 g_GestureWakeupFlag = 0;
