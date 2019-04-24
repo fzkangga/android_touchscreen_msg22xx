@@ -448,7 +448,6 @@ void MsDrvInterfaceTouchDeviceResume(void)
 
 #endif //CONFIG_ENABLE_NOTIFIER_FB
 
-#if 1
 //add by mike.li for suspend & resume.[2015.07.07]
 #if defined(CONFIG_FB)
 static int fb_notifier_callback(struct notifier_block *self,
@@ -467,7 +466,6 @@ static int fb_notifier_callback(struct notifier_block *self,
 
 	return 0;
 }
-#endif
 #endif
 /* probe function is used for matching and initializing input device */
 s32 /*__devinit*/ MsDrvInterfaceTouchDeviceProbe(struct i2c_client *pClient, const struct i2c_device_id *pDeviceId)
