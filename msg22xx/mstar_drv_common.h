@@ -59,6 +59,7 @@
 /* TOUCH DEVICE DRIVER RELEASE VERSION                                      */
 /*--------------------------------------------------------------------------*/
 
+extern unsigned global_reset_gpio;
 #define DEVICE_DRIVER_RELEASE_VERSION   ("3.6.f.z.k")
 
 
